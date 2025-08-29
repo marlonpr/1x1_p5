@@ -1,6 +1,8 @@
 #include "led_panel.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
+//#include "font20x40.h"
+#include "font20x30.h"
 #include "font6x9.h"
 #include "soc/gpio_struct.h"  // for GPIO register access
 #include "nvs_flash.h"
@@ -359,5 +361,96 @@ void draw_bitmap_rgb(int x0, int y0, const uint32_t *bmp, int w, int h) {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// set_pixel(x, y, r, g, b) is your existing function
+// VIRT_WIDTH, VIRT_HEIGHT are the virtual drawing dimensions
+
+// ----------------- Draw a single character -----------------
+void draw_char_2(int x, int y, char c, int r, int g, int b) {
+    if (c < 32 || c > 126) c = '?';  // fallback
+    int index = c - 32;
+
+    for (int row = 0; row < FONT_HEIGHT_2; row++) {
+        for (int col = 0; col < FONT_WIDTH_2; col++) {
+            if (font20x30[index][row][col]) {
+                int px = x + col;
+                int py = y + row;
+                if (px >= 0 && px < VIRT_WIDTH && py >= 0 && py < VIRT_HEIGHT) {
+                    set_pixel(px, py, r, g, b);
+                }
+            }
+        }
+    }
+}
+
+// ----------------- Draw a string with 1-pixel spacing -----------------
+void draw_text_2(int x, int y, const char *text, int r, int g, int b) {
+    int cursor_x = x;
+    while (*text) {
+        draw_char_2(cursor_x, y, *text, r, g, b);
+        cursor_x += FONT_WIDTH_2 + 1;  // advance cursor by font width + 1 pixel spacing
+        text++;
+    }
+}
+
+
+// ----------------- Scroll text horizontally (improved) -----------------
+void scroll_text_2(const char *text, int y, int r, int g, int b, int speed_ms) {
+    int len = strlen(text);
+    int text_width = len * (FONT_WIDTH_2 + 1); // include spacing
+
+    // Precompute virtual width including the panel width
+    int total_scroll = text_width + VIRT_WIDTH;
+
+    // For each frame
+    for (int scroll_x = 0; scroll_x < total_scroll + 1; scroll_x++) {
+
+        // Draw only visible area
+        for (int plane = 0; plane < COLOR_DEPTH; plane++) {
+            // Optionally zero only the part that will change
+            memset(back_planes[plane], 0, PHY_HEIGHT * PHY_WIDTH);
+        }
+
+        int cursor_x = VIRT_WIDTH - scroll_x;
+        const char *p = text;
+        while (*p) {
+            draw_char_2(cursor_x, y, *p, r, g, b);
+            cursor_x += FONT_WIDTH_2 + 1;
+            p++;
+        }
+
+        swap_buffers();
+		if (stop_flag) break;   // condition to exit early                     // atomic plane swap
+        vTaskDelay(pdMS_TO_TICKS(speed_ms));
+    }
+}
+
+
+
 
 

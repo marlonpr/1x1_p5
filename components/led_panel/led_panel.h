@@ -96,9 +96,40 @@ void set_global_brightness(uint8_t level);
 void refresh_task(void *arg);
 void clear_back_buffer(void);
 void swap_buffers(void);
+
+
+
+
+
+
+
+
+
+
 void draw_text(int x, int y, const char *s, int r, int g, int b);
 void scroll_text(const char *text, int y, int r, int g, int b, int speed_ms);
 void draw_char(int x, int y, char c, int r, int g, int b);
+
+
+
+
+
+
+
+
+void draw_text_2(int x, int y, const char *s, int r, int g, int b);
+void scroll_text_2(const char *text, int y, int r, int g, int b, int speed_ms);
+void draw_char_2(int x, int y, char c, int r, int g, int b);
+
+
+
+
+
+
+
+
+
+
 void init_planes(void);
 void draw_bitmap_rgb(int x0, int y0, const uint32_t *bmp, int w, int h);
 void set_global_brightness_pct(uint8_t percent);

@@ -268,6 +268,52 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 
     switch (mode) {
         case DISPLAY_TIME: {
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+
+            int weekday_index = (time->day_of_week - 1) % 7;
+            char buf3[32];
+            snprintf(buf3, sizeof(buf3), "%s",
+                     dias_semana[weekday_index]);
+
+            draw_text(1, 1, buf3, 0, 255, 0);
+            
+            
+            
+            
+            
+            char buf4[32];
+            snprintf(buf4, sizeof(buf4), "%02d-%02d-%02d",
+                     time->day,time->month,
+                     time->year-2000);
+
+            draw_text(4, 11, buf4, 0, 0, 255);//x=6            
+            
+            
+            
+            		
+			
             int hour12 = time->hour % 12;
             if (hour12 == 0) hour12 = 12;
 
@@ -281,7 +327,32 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
                 snprintf(buf, sizeof(buf), colon_on ? "%02d:%02d" : "%02d %02d", hour12, time->minute);
             }
 
-            draw_text(0, 0, buf, 255, 255, 255); // green
+            draw_text(0, 22, buf, 255, 255, 255); // green
+                                                                              
+            
+               char buf2[32];
+            if (temp_valid) {
+                snprintf(buf2, sizeof(buf2), "%d*", current_temp);
+            } else {
+                snprintf(buf2, sizeof(buf2), "TEMP ERROR");
+            }
+            draw_text(40, 22, buf2, 255, 0, 0);         
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
             break;
         }
         case DISPLAY_DATE: {
@@ -293,8 +364,8 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
                      meses[time->month - 1],
                      time->year);
 
-            //scroll_text(buf, 0, 255, 0, 255, 15);
-            draw_text(1, 1, "123456789", 0, 255, 0);
+            scroll_text(buf, 0, 255, 0, 255, 15);
+            //draw_text(1, 1, "123456789", 0, 255, 0);
             break;
         }
         case DISPLAY_TEMPERATURE: {
@@ -307,9 +378,119 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             draw_text(0, 0, buf, 0, 255, 255);
             break;
         }
-        case DISPLAY_LOGO:
-            draw_bitmap_rgb(0,0,logo_bitmap, LOGO_WIDTH, LOGO_HEIGHT);
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+   case DISPLAY_LOGO: {
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+
+            int weekday_index = (time->day_of_week - 1) % 7;
+            char buf4[32];
+            snprintf(buf4, sizeof(buf4), "%s %02d %s %04d",
+                     dias_semana[weekday_index],
+                     time->day,
+                     meses[time->month - 1],
+                     time->year);
+
+            scroll_text_2(buf4, 1, 255, 0, 255, 15);
+            //draw_text_2(1, 1, buf4, 0, 255, 0);           
+            
+            
+            
+            		
+			
+/*
+            int weekday_index = (time->day_of_week - 1) % 7;
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%s %02d %s %04d",
+                     dias_semana[weekday_index],
+                     time->day,
+                     meses[time->month - 1],
+                     time->year);
+
+            //scroll_text(buf, 0, 255, 0, 255, 15);
+            draw_text(1, 1, "123456789", 0, 255, 0);
+*/
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
             break;
+        }
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
 /*
         case DISPLAY_LOGO2:
             draw_bitmap_rgb(24,16,logo2_bitmap, LOGO_WIDTH, LOGO_HEIGHT);
@@ -345,27 +526,27 @@ void drawing_task(void *arg)
             switch (menu_state)
             {
                 case MENU_BRIGHTNESS:
-                    snprintf(buf, sizeof(buf), "BRI:%d", brightness_level);
-                    draw_text(0, 8, buf, 255, 0, 0);
+                    snprintf(buf, sizeof(buf), "BRILLO:%d", brightness_level);
+                    draw_text(1, 8, buf, 255, 0, 0);
                     break;
                 case MENU_HOUR:
-                    snprintf(buf, sizeof(buf), "HRA:%02d", tmp_time.hour);
+                    snprintf(buf, sizeof(buf), " HORA:%02d", tmp_time.hour);
                     draw_text(0, 8, buf, 255, 0, 0);
                     break;
                 case MENU_MINUTE:
-                    snprintf(buf, sizeof(buf), "MIN:%02d", tmp_time.minute);
-                    draw_text(0, 8, buf, 255, 0, 0);
+                    snprintf(buf, sizeof(buf), "MINUTO:%02d", tmp_time.minute);
+                    draw_text(1, 8, buf, 255, 0, 0);
                     break;
                 case MENU_DAY:
-                    snprintf(buf, sizeof(buf), "DIA:%02d", tmp_time.day);
+                    snprintf(buf, sizeof(buf), " DIA:%02d", tmp_time.day);
                     draw_text(0, 8, buf, 255, 0, 0);
                     break;
                 case MENU_MONTH:
-                    snprintf(buf, sizeof(buf), "MES:%02d", tmp_time.month);
+                    snprintf(buf, sizeof(buf), " MES:%02d", tmp_time.month);
                     draw_text(0, 8, buf, 255, 0, 0);
                     break;
                 case MENU_YEAR:
-                    snprintf(buf, sizeof(buf), "A|O:%02d", tmp_time.year-2000);
+                    snprintf(buf, sizeof(buf), " A|O:%02d", tmp_time.year-2000);
                     draw_text(0, 8, buf, 255, 0, 0);
                     break;
                 default: break;
@@ -380,7 +561,7 @@ void drawing_task(void *arg)
         ds3231_time_t now;
         ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
 
-        switch (DISPLAY_DATE) 
+        switch (DISPLAY_TIME) 
         {
 			case DISPLAY_TIME: {
 			    TickType_t start_tick = xTaskGetTickCount();
