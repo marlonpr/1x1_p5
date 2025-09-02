@@ -2,6 +2,8 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "font6x9.h"
+
 
 // ------------ CONFIG: panel + layout ------------
 #define PANEL_WIDTH    64
@@ -139,4 +141,3 @@ void set_pixel(int x, int y, int r8, int g8, int b8);
 void init_nvs_brightness();
 void save_brightness(uint8_t level);
 uint8_t load_brightness();
-

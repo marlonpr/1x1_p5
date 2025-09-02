@@ -3,7 +3,6 @@
 #include "driver/ledc.h"
 //#include "font20x40.h"
 #include "font20x30.h"
-#include "font6x9.h"
 #include "soc/gpio_struct.h"  // for GPIO register access
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -449,7 +448,6 @@ void scroll_text_2(const char *text, int y, int r, int g, int b, int speed_ms) {
         vTaskDelay(pdMS_TO_TICKS(speed_ms));
     }
 }
-
 
 
 

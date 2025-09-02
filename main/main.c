@@ -15,6 +15,67 @@ bool stop_flag = false;
 
 
 
+typedef struct {
+    char text[64];
+    float x;       // <- float instead of int for subpixel precision
+    int y;
+    uint8_t r, g, b;
+    bool active;
+    TickType_t last_tick;
+    int speed_px_per_sec;
+} scroll_state_t;
+
+static scroll_state_t scroll_state = {0};
+
+void scroll_start(const char *text, int y,
+                  uint8_t r, uint8_t g, uint8_t b,
+                  int speed_px_per_sec) {
+    strncpy(scroll_state.text, text, sizeof(scroll_state.text) - 1);
+    scroll_state.text[sizeof(scroll_state.text) - 1] = '\0';
+    scroll_state.x = 63.0f;  // start as float
+    scroll_state.y = y;
+    scroll_state.r = r;
+    scroll_state.g = g;
+    scroll_state.b = b;
+    scroll_state.speed_px_per_sec = speed_px_per_sec;
+    scroll_state.active = true;
+    scroll_state.last_tick = xTaskGetTickCount();
+}
+
+
+// Update scroll (call often)
+void scroll_update(void) {
+    if (!scroll_state.active) return;
+
+    TickType_t now = xTaskGetTickCount();
+    TickType_t elapsed_ms = (now - scroll_state.last_tick) * portTICK_PERIOD_MS;
+
+    if (elapsed_ms > 0) {
+        float delta = (scroll_state.speed_px_per_sec * elapsed_ms) / 1000.0f;
+        scroll_state.x -= delta;  // smooth subpixel step
+        scroll_state.last_tick = now;
+    }
+
+    // draw at integer position
+    int draw_x = (int)scroll_state.x;
+    draw_text(draw_x, scroll_state.y,
+              scroll_state.text,
+              scroll_state.r, scroll_state.g, scroll_state.b);
+
+    int text_width = strlen(scroll_state.text) * FONT_WIDTH;
+    if (draw_x + text_width + FONT_WIDTH*3 < 0) {
+        scroll_state.x = 63.0f;
+    }
+}
+
+
+
+
+
+
+
+
+
 
 // Return 1=Sunday ... 7=Saturday to match DS3231
 static int calculate_weekday(int day, int month, int year)
@@ -94,10 +155,12 @@ static ds3231_time_t tmp_time;   // temporary time editing
 
 static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
 {
+    
     switch (menu_state)
     {
         case MENU_IDLE:
             if (btn == BTN_MENU) {
+				ESP_ERROR_CHECK(ds3231_get_time(rtc, &tmp_time));
 				menu_state = MENU_BRIGHTNESS;
 				stop_flag = true;
 			    menu_active = 1;
@@ -154,19 +217,15 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
     }
 }
 
-
-
-
-
-
 static void menu_task(void *arg)
 {
     ds3231_dev_t *rtc = (ds3231_dev_t *)arg;
-	ESP_ERROR_CHECK(ds3231_get_time(rtc, &tmp_time));
 
-    static TickType_t last_press_time[3] = {0,0,0}; // BTN_MENU, BTN_UP, BTN_DOWN
+    static TickType_t press_start[3] = {0,0,0}; 
     static button_t last_btn = -1;
     static TickType_t repeat_time = 0;
+    bool menu_entering = false; 
+    bool ignore_release = false; // ✅ new flag
 
     while(1)
     {
@@ -175,54 +234,70 @@ static void menu_task(void *arg)
 
         if (xQueueReceive(button_queue, &btn, pdMS_TO_TICKS(10))) 
         {
-            // Debounce per button
-            if ((now - last_press_time[btn]) < pdMS_TO_TICKS(DEBOUNCE_MS))
+            // Debounce
+            if ((now - press_start[btn]) < pdMS_TO_TICKS(DEBOUNCE_MS))
                 continue;
 
-            last_press_time[btn] = now;
+            press_start[btn] = now;
             last_btn = btn;
             repeat_time = now + pdMS_TO_TICKS(REPEAT_DELAY);
 
-            handle_menu_button(btn, rtc);
+            if (!menu_active) {
+                // Require 1s hold to enter menu
+                if (btn == BTN_MENU) {
+                    menu_entering = true;
+                }
+            } else {
+                // Inside menu
+                if (!(btn == BTN_MENU && ignore_release)) {
+                    handle_menu_button(btn, rtc);
+                }
+            }
         }
         else
         {
-            // Auto-repeat
-            if (last_btn != -1 && (now - last_press_time[last_btn]) >= pdMS_TO_TICKS(REPEAT_DELAY))
+            // Check hold for entering menu
+            if (menu_entering && !gpio_get_level(PIN_MENU)) {
+                if ((now - press_start[BTN_MENU]) >= pdMS_TO_TICKS(1000)) {
+                    handle_menu_button(BTN_MENU, rtc); // enter menu
+                    menu_entering = false;
+                    ignore_release = true; // ✅ block next release
+                    last_btn = -1;
+                }
+            }
+
+            // Auto-repeat only when menu is active
+            if (menu_active && last_btn != -1 && 
+                (now - press_start[last_btn]) >= pdMS_TO_TICKS(REPEAT_DELAY)) 
             {
-                if ((now - repeat_time) >= pdMS_TO_TICKS(REPEAT_RATE))
-                {
+                if ((now - repeat_time) >= pdMS_TO_TICKS(REPEAT_RATE)) {
                     handle_menu_button(last_btn, rtc);
                     repeat_time = now;
                 }
             }
         }
 
-        // Reset last_btn if all buttons released
-        if (gpio_get_level(PIN_MENU) && gpio_get_level(PIN_UP) && gpio_get_level(PIN_DOWN))
+        // Reset if all released
+        if (gpio_get_level(PIN_MENU) && gpio_get_level(PIN_UP) && gpio_get_level(PIN_DOWN)) {
             last_btn = -1;
+            menu_entering = false;
+            ignore_release = false; // ✅ clear block when all buttons released
+        }
 
-        //vTaskDelay(pdMS_TO_TICKS(10));
-
+        // Timeout exit
         if (menu_active) {
-            int64_t now = esp_timer_get_time();
-            if (now - last_button_time > MENU_TIMEOUT_US) {
-                menu_active = 0;  // auto-exit
+            int64_t now_us = esp_timer_get_time();
+            if (now_us - last_button_time > MENU_TIMEOUT_US) {
+                menu_active = 0;
                 printf("Menu timeout -> exiting\n");
-				menu_state = MENU_IDLE;
-				stop_flag = false;
+                menu_state = MENU_IDLE;
+                stop_flag = false;
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(200));  // check every 200 ms
+
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
-
-
-
-
-
-
-
 
 static ds18b20_t sensor;
 
@@ -267,107 +342,54 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
     clear_back_buffer();
 
     switch (mode) {
-        case DISPLAY_TIME: {
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-
-            int weekday_index = (time->day_of_week - 1) % 7;
-            char buf3[32];
-            snprintf(buf3, sizeof(buf3), "%s",
-                     dias_semana[weekday_index]);
-
-            draw_text(1, 1, buf3, 0, 255, 0);
-            
-            
-            
-            
-            
-            char buf4[32];
-            snprintf(buf4, sizeof(buf4), "%02d-%02d-%02d",
-                     time->day,time->month,
-                     time->year-2000);
-
-            draw_text(4, 11, buf4, 0, 0, 255);//x=6            
-            
-            
-            
-            		
-			
+        case DISPLAY_TIME: {	
+            // --- Time ---
             int hour12 = time->hour % 12;
             if (hour12 == 0) hour12 = 12;
 
-            // Colon visible only when seconds are even
-            bool colon_on = (time->second % 2) == 0;
-
-            char buf[16];
+            bool colon_on = (time->second % 2) == 0;  // blink colon
+            char buf_time[16];
             if (hour12 < 10) {
-                snprintf(buf, sizeof(buf), colon_on ? " %1d:%02d" : " %1d %02d", hour12, time->minute);
+                snprintf(buf_time, sizeof(buf_time),
+                         colon_on ? " %1d:%02d" : " %1d %02d",
+                         hour12, time->minute);
             } else {
-                snprintf(buf, sizeof(buf), colon_on ? "%02d:%02d" : "%02d %02d", hour12, time->minute);
+                snprintf(buf_time, sizeof(buf_time),
+                         colon_on ? "%02d:%02d" : "%02d %02d",
+                         hour12, time->minute);
             }
 
-            draw_text(0, 22, buf, 255, 255, 255); // green
-                                                                              
-            
-               char buf2[32];
+            draw_text(0, 22, buf_time, 255, 255, 255); // time in white
+
+            // --- Temperature ---
+            char buf_temp[16];
             if (temp_valid) {
-                snprintf(buf2, sizeof(buf2), "%d*", current_temp);
+                snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
             } else {
-                snprintf(buf2, sizeof(buf2), "TEMP ERROR");
+                snprintf(buf_temp, sizeof(buf_temp), "TEMP ERR");
             }
-            draw_text(40, 22, buf2, 255, 0, 0);         
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            break;
-        }
-        case DISPLAY_DATE: {
+            draw_text(40, 22, buf_temp, 255, 0, 0);  // temp in red
+
+            // --- Date (scrolling) ---
             int weekday_index = (time->day_of_week - 1) % 7;
-            char buf[32];
-            snprintf(buf, sizeof(buf), "%s %02d %s %04d",
+            static char buf_date[64];
+            snprintf(buf_date, sizeof(buf_date), "%s %d %s %04d",
                      dias_semana[weekday_index],
                      time->day,
                      meses[time->month - 1],
                      time->year);
 
-            scroll_text(buf, 0, 255, 0, 255, 15);
-            //draw_text(1, 1, "123456789", 0, 255, 0);
+            if (!scroll_state.active) {
+                scroll_start(buf_date, 0, 255, 0, 8, 20);  
+                // y=8, green, 100 ms per pixel (adjust for speed)
+            }
+
+            // Draw scroll text (movement controlled by speed_ms)
+            scroll_update();
+
             break;
         }
+
         case DISPLAY_TEMPERATURE: {
             char buf[32];
             if (temp_valid) {
@@ -378,132 +400,15 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             draw_text(0, 0, buf, 0, 255, 255);
             break;
         }
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-   case DISPLAY_LOGO: {
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
 
-            int weekday_index = (time->day_of_week - 1) % 7;
-            char buf4[32];
-            snprintf(buf4, sizeof(buf4), "%s %02d %s %04d",
-                     dias_semana[weekday_index],
-                     time->day,
-                     meses[time->month - 1],
-                     time->year);
-
-            scroll_text_2(buf4, 1, 255, 0, 255, 15);
-            //draw_text_2(1, 1, buf4, 0, 255, 0);           
-            
-            
-            
-            		
-			
-/*
-            int weekday_index = (time->day_of_week - 1) % 7;
-            char buf[32];
-            snprintf(buf, sizeof(buf), "%s %02d %s %04d",
-                     dias_semana[weekday_index],
-                     time->day,
-                     meses[time->month - 1],
-                     time->year);
-
-            //scroll_text(buf, 0, 255, 0, 255, 15);
-            draw_text(1, 1, "123456789", 0, 255, 0);
-*/
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
+        case DISPLAY_LOGO:
+        case DISPLAY_DATE:
+            // other modes...
             break;
-        }
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-/*
-        case DISPLAY_LOGO2:
-            draw_bitmap_rgb(24,16,logo2_bitmap, LOGO_WIDTH, LOGO_HEIGHT);
-            break;
-        case DISPLAY_LOGO3:
-            draw_bitmap_rgb(24,16,logo3_bitmap, LOGO_WIDTH, LOGO_HEIGHT);
-            break;
-*/
     }
 
     swap_buffers();
 }
-
 
 
 
@@ -517,10 +422,11 @@ void drawing_task(void *arg)
 
     while (1) 
     {
-        clear_back_buffer();
+        
 
         if (menu_state != MENU_IDLE)
         {
+            clear_back_buffer();
             // Draw the menu
             char buf[32];
             switch (menu_state)
@@ -561,24 +467,26 @@ void drawing_task(void *arg)
         ds3231_time_t now;
         ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
 
-        switch (DISPLAY_TIME) 
+        switch (mode) 
         {
 			case DISPLAY_TIME: {
 			    TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s-5) * 100);
 			    ds3231_time_t now;
 			
 			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
 			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
 			        draw_display(DISPLAY_TIME, &now);  // called frequently for smooth blinking
+			        
+
 			
 			        // Small delay to avoid blocking CPU and allow colon toggle
-			        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+			        TickType_t delay_ms = 1; // update every 50ms (20Hz)
 			        TickType_t elapsed = 0;
 			        while (elapsed < delay_ms) {
 			            if (stop_flag) break;  // early exit condition
-			            vTaskDelay(pdMS_TO_TICKS(10));
-			            elapsed += 10;
+			            vTaskDelay(pdMS_TO_TICKS(1));
+			            elapsed += 1;
 			        }
 			
 			        if (stop_flag) break;
@@ -622,46 +530,10 @@ void drawing_task(void *arg)
 					}
                 }
                 break;
-/*
-
-            case DISPLAY_LOGO2:
-                draw_display(DISPLAY_LOGO2, &now);
-                //vTaskDelay(pdMS_TO_TICKS(mode_interval_s * 200));
-                for (int i = 0; i < mode_interval_s; i++) 
-                {
-                    //vTaskDelay(pdMS_TO_TICKS(1000));
-
-					TickType_t delay_ms = 200;
-					TickType_t elapsed = 0;
-					while (elapsed < delay_ms) {
-					    if (stop_flag) break;   // condition to exit early
-					    vTaskDelay(pdMS_TO_TICKS(10));
-					    elapsed += 10;
-					}
-                }
-                break;
-
-            case DISPLAY_LOGO3:
-                draw_display(DISPLAY_LOGO3, &now);
-                //vTaskDelay(pdMS_TO_TICKS(mode_interval_s * 300));
-                for (int i = 0; i < mode_interval_s; i++) 
-                {
-                    //vTaskDelay(pdMS_TO_TICKS(1000));
-
-					TickType_t delay_ms = 200;
-					TickType_t elapsed = 0;
-					while (elapsed < delay_ms) {
-					    if (stop_flag) break;   // condition to exit early
-					    vTaskDelay(pdMS_TO_TICKS(10));
-					    elapsed += 10;
-					}
-                }
-                break;
-*/
         }
 
         mode++;
-        if (mode > DISPLAY_LOGO) mode = DISPLAY_TIME;
+        if (mode > DISPLAY_TIME) mode = DISPLAY_TIME;
     }
 }
 
@@ -717,4 +589,3 @@ void app_main(void)
 
     }
 }
-
