@@ -13,7 +13,7 @@ static int64_t last_button_time = 0;
 
 bool stop_flag = false;
 
-
+// At top of file (global)
 
 typedef struct {
     char text[64];
@@ -63,7 +63,7 @@ void scroll_update(void) {
               scroll_state.r, scroll_state.g, scroll_state.b);
 
     int text_width = strlen(scroll_state.text) * FONT_WIDTH;
-    if (draw_x + text_width + FONT_WIDTH*3 < 0) {
+    if (draw_x + text_width + FONT_WIDTH < 0) {
         scroll_state.x = 63.0f;
     }
 }
@@ -342,7 +342,62 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
     clear_back_buffer();
 
     switch (mode) {
-        case DISPLAY_TIME: {	
+                case DISPLAY_TIME: {	
+            // --- Time ---
+            int hour12 = time->hour % 12;
+            if (hour12 == 0) hour12 = 12;
+
+            char buf_time[16];
+            if (hour12 < 10) {
+                snprintf(buf_time, sizeof(buf_time), " %1d:%02d:%02d" ,
+                         hour12, time->minute, time->second);
+            } else {
+                snprintf(buf_time, sizeof(buf_time), "%02d:%02d:%02d" ,
+                         hour12, time->minute, time->second);
+            }
+
+            draw_text(4, 1, buf_time, 255, 255, 255); // time in white
+
+            // --- Temperature ---
+            char buf_temp[16];
+            if (temp_valid) {
+                snprintf(buf_temp, sizeof(buf_temp), "%d*C", current_temp);
+            } else {
+                snprintf(buf_temp, sizeof(buf_temp), "T E");
+            }
+            draw_text(20, 22, buf_temp, 255, 0, 0);  // temp in red
+
+            // --- Date (scrolling) ---
+            int weekday_index = (time->day_of_week - 1) % 7;
+            static char buf_date[64];    
+            //static char last_scrolled_date[64] = "";    
+			snprintf(buf_date, sizeof(buf_date), "%s %d %s %04d",
+			         dias_semana[weekday_index],
+			         time->day,
+			         meses[time->month - 1],
+			         time->year);
+			         
+			         
+            if (!scroll_state.active) {
+                scroll_start(buf_date, 12, 0, 255, 0, 10);  
+                // y=8, green, 100 ms per pixel (adjust for speed)
+            }
+			         		
+/*
+			// Restart scroll if string changed
+			if (strcmp(buf_date, last_scrolled_date) != 0) {
+			    strcpy(last_scrolled_date, buf_date);
+			    scroll_start(buf_date, 12, 0, 255, 0, 10);  
+			    // y=0, green, 15 px/sec
+			}		
+*/	
+			// Update scroll every frame
+			scroll_update();
+            break;        
+        }
+      
+        case DISPLAY_DATE: {
+			
             // --- Time ---
             int hour12 = time->hour % 12;
             if (hour12 == 0) hour12 = 12;
@@ -359,52 +414,112 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
                          hour12, time->minute);
             }
 
-            draw_text(0, 22, buf_time, 255, 255, 255); // time in white
+            draw_text(2, 18, buf_time, 255, 255, 255); // time in white
+
 
             // --- Temperature ---
             char buf_temp[16];
             if (temp_valid) {
                 snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
             } else {
-                snprintf(buf_temp, sizeof(buf_temp), "TEMP ERR");
+                snprintf(buf_temp, sizeof(buf_temp), "T E");
             }
-            draw_text(40, 22, buf_temp, 255, 0, 0);  // temp in red
+            draw_text(43, 18, buf_temp, 255, 0, 0);  // temp in red
 
             // --- Date (scrolling) ---
             int weekday_index = (time->day_of_week - 1) % 7;
-            static char buf_date[64];
-            snprintf(buf_date, sizeof(buf_date), "%s %d %s %04d",
-                     dias_semana[weekday_index],
-                     time->day,
-                     meses[time->month - 1],
-                     time->year);
-
+            static char buf_date[64];   
+            //static char last_scrolled_date[64] = "";     
+			snprintf(buf_date, sizeof(buf_date), "%s %d %s %04d",
+			         dias_semana[weekday_index],
+			         time->day,
+			         meses[time->month - 1],
+			         time->year);
+			         
             if (!scroll_state.active) {
-                scroll_start(buf_date, 0, 255, 0, 8, 20);  
+                scroll_start(buf_date, 2, 0, 255, 0, 10);  
                 // y=8, green, 100 ms per pixel (adjust for speed)
             }
-
-            // Draw scroll text (movement controlled by speed_ms)
-            scroll_update();
-
+/*
+			         		
+			// Restart scroll if string changed
+			if (strcmp(buf_date, last_scrolled_date) != 0) {
+			    strcpy(last_scrolled_date, buf_date);
+			    scroll_start(buf_date, 5, 0, 255, 0, 10);  
+			    // y=0, green, 15 px/sec
+			}	
+*/		
+			// Update scroll every frame
+			scroll_update();
             break;
         }
+        
+        
+
+
 
         case DISPLAY_TEMPERATURE: {
-            char buf[32];
-            if (temp_valid) {
-                snprintf(buf, sizeof(buf), "%d*C", current_temp);
+			//------------DATE-------------------------
+            int weekday_index = (time->day_of_week - 1) % 7;
+            char buf3[32];
+            snprintf(buf3, sizeof(buf3), "%s",
+                     dias_semana[weekday_index]);
+
+            draw_text(1, 1, buf3, 0, 255, 0);
+            
+            
+            
+            
+            
+            char buf4[32];
+            snprintf(buf4, sizeof(buf4), "%02d-%02d-%02d",
+                     time->day,time->month,
+                     time->year-2000);
+
+            draw_text(4, 11, buf4, 0, 0, 255);//x=6            			
+			
+			
+            // ----------------- Time -------------------
+            int hour12 = time->hour % 12;
+            if (hour12 == 0) hour12 = 12;
+
+            bool colon_on = (time->second % 2) == 0;  // blink colon
+            char buf_time[16];
+            if (hour12 < 10) {
+                snprintf(buf_time, sizeof(buf_time),
+                         colon_on ? " %1d:%02d" : " %1d %02d",
+                         hour12, time->minute);
             } else {
-                snprintf(buf, sizeof(buf), "TEMP ERROR");
+                snprintf(buf_time, sizeof(buf_time),
+                         colon_on ? "%02d:%02d" : "%02d %02d",
+                         hour12, time->minute);
             }
-            draw_text(0, 0, buf, 0, 255, 255);
+
+            draw_text(2, 22, buf_time, 255, 255, 255); // time in white
+
+
+            // ------------------- Temperature ---------------
+            char buf_temp[16];
+            if (temp_valid) {
+                snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
+            } else {
+                snprintf(buf_temp, sizeof(buf_temp), "T E");
+            }
+            draw_text(43, 22, buf_temp, 255, 0, 0);  // temp in red
             break;
         }
+        
 
-        case DISPLAY_LOGO:
-        case DISPLAY_DATE:
+
+
+
+
+
+
+        case DISPLAY_LOGO:{  
             // other modes...
             break;
+        }
     }
 
     swap_buffers();
@@ -418,7 +533,7 @@ void drawing_task(void *arg)
 {
     ds3231_dev_t *rtc = (ds3231_dev_t *)arg;
     display_mode_t mode = DISPLAY_TIME;
-    const int mode_interval_s = 10;
+    const int mode_interval_s = 20;
 
     while (1) 
     {
@@ -471,48 +586,74 @@ void drawing_task(void *arg)
         {
 			case DISPLAY_TIME: {
 			    TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s-5) * 100);
+			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
 			    ds3231_time_t now;
-			
+			    scroll_state.active = false;
+
 			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
 			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
 			        draw_display(DISPLAY_TIME, &now);  // called frequently for smooth blinking
-			        
 
-			
 			        // Small delay to avoid blocking CPU and allow colon toggle
-			        TickType_t delay_ms = 1; // update every 50ms (20Hz)
+			        TickType_t delay_ms = 50; // update every 50ms (20Hz)
 			        TickType_t elapsed = 0;
 			        while (elapsed < delay_ms) {
 			            if (stop_flag) break;  // early exit condition
-			            vTaskDelay(pdMS_TO_TICKS(1));
-			            elapsed += 1;
+			            vTaskDelay(pdMS_TO_TICKS(10));
+			            elapsed += 10;
 			        }
-			
+
 			        if (stop_flag) break;
 			    }
 			    break;
 			}
-            case DISPLAY_DATE:
-                draw_display(DISPLAY_DATE, &now);
-                break;
+			case DISPLAY_DATE: {
+			    TickType_t start_tick = xTaskGetTickCount();
+			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+			    ds3231_time_t now;
+			    scroll_state.active = false;
 
-            case DISPLAY_TEMPERATURE:
-                draw_display(DISPLAY_TEMPERATURE, &now);
-                //vTaskDelay(pdMS_TO_TICKS(mode_interval_s * 500));
-                for (int i = 0; i < mode_interval_s; i++) 
-                {
-                    //vTaskDelay(pdMS_TO_TICKS(1000));
+			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+			        draw_display(DISPLAY_DATE, &now);  // called frequently for smooth blinking
 
-					TickType_t delay_ms = 400;
-					TickType_t elapsed = 0;
-					while (elapsed < delay_ms) {
-					    if (stop_flag) break;   // condition to exit early
-					    vTaskDelay(pdMS_TO_TICKS(10));
-					    elapsed += 10;
-					}
-                }
-                break;
+			        // Small delay to avoid blocking CPU and allow colon toggle
+			        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+			        TickType_t elapsed = 0;
+			        while (elapsed < delay_ms) {
+			            if (stop_flag) break;  // early exit condition
+			            vTaskDelay(pdMS_TO_TICKS(10));
+			            elapsed += 10;
+			        }
+
+			        if (stop_flag) break;
+			    }
+			    break;
+			}
+
+			case DISPLAY_TEMPERATURE: {
+			    TickType_t start_tick = xTaskGetTickCount();
+			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+			    ds3231_time_t now;
+			    scroll_state.active = false;
+
+			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+			        draw_display(DISPLAY_TEMPERATURE, &now);  // called frequently for smooth blinking
+
+			        // Small delay to avoid blocking CPU and allow colon toggle
+			        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+			        TickType_t elapsed = 0;
+			        while (elapsed < delay_ms) {
+			            if (stop_flag) break;  // early exit condition
+			            vTaskDelay(pdMS_TO_TICKS(10));
+			            elapsed += 10;
+			        }
+
+			        if (stop_flag) break;
+			    }
+			    break;
+			}
 
             case DISPLAY_LOGO:
                 draw_display(DISPLAY_LOGO, &now);
@@ -533,7 +674,7 @@ void drawing_task(void *arg)
         }
 
         mode++;
-        if (mode > DISPLAY_TIME) mode = DISPLAY_TIME;
+        if (mode > DISPLAY_TEMPERATURE) mode = DISPLAY_TIME;
     }
 }
 
@@ -589,3 +730,190 @@ void app_main(void)
 
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+			//-----------------------------PLANTILLA 2---------------------------
+
+        case DISPLAY_TIME: {	
+            // --- Time ---
+            int hour12 = time->hour % 12;
+            if (hour12 == 0) hour12 = 12;
+
+            char buf_time[16];
+            if (hour12 < 10) {
+                snprintf(buf_time, sizeof(buf_time), " %1d:%02d:%02d" ,
+                         hour12, time->minute, time->second);
+            } else {
+                snprintf(buf_time, sizeof(buf_time), "%02d:%02d:%02d" ,
+                         hour12, time->minute, time->second);
+            }
+
+            draw_text(3, 1, buf_time, 255, 255, 255); // time in white
+
+            // --- Temperature ---
+            char buf_temp[16];
+            if (temp_valid) {
+                snprintf(buf_temp, sizeof(buf_temp), "%d*C", current_temp);
+            } else {
+                snprintf(buf_temp, sizeof(buf_temp), "T E");
+            }
+            draw_text(20, 22, buf_temp, 255, 0, 0);  // temp in red
+
+            // --- Date (scrolling) ---
+            int weekday_index = (time->day_of_week - 1) % 7;
+            static char buf_date[64];        
+			snprintf(buf_date, sizeof(buf_date), "%s %d %s %04d",
+			         dias_semana[weekday_index],
+			         time->day,
+			         meses[time->month - 1],
+			         time->year);
+			         		
+			// Restart scroll if string changed
+			if (strcmp(buf_date, last_scrolled_date) != 0) {
+			    strcpy(last_scrolled_date, buf_date);
+			    scroll_start(buf_date, 12, 0, 255, 0, 10);  
+			    // y=0, green, 15 px/sec
+			}			
+			// Update scroll every frame
+			scroll_update();
+            break;
+        }
+
+*/
+
+
+
+
+
+
+/*
+		------------------PLANTILLA 3---------------------------------------
+
+        case DISPLAY_TIME: {	
+            // --- Time ---
+            int hour12 = time->hour % 12;
+            if (hour12 == 0) hour12 = 12;
+
+            bool colon_on = (time->second % 2) == 0;  // blink colon
+            char buf_time[16];
+            if (hour12 < 10) {
+                snprintf(buf_time, sizeof(buf_time),
+                         colon_on ? " %1d:%02d" : " %1d %02d",
+                         hour12, time->minute);
+            } else {
+                snprintf(buf_time, sizeof(buf_time),
+                         colon_on ? "%02d:%02d" : "%02d %02d",
+                         hour12, time->minute);
+            }
+
+            draw_text(3, 18, buf_time, 255, 255, 255); // time in white
+
+
+            // --- Temperature ---
+            char buf_temp[16];
+            if (temp_valid) {
+                snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
+            } else {
+                snprintf(buf_temp, sizeof(buf_temp), "T E");
+            }
+            draw_text(40, 18, buf_temp, 255, 0, 0);  // temp in red
+
+            // --- Date (scrolling) ---
+            int weekday_index = (time->day_of_week - 1) % 7;
+            static char buf_date[64];        
+			snprintf(buf_date, sizeof(buf_date), "%s %d %s %04d",
+			         dias_semana[weekday_index],
+			         time->day,
+			         meses[time->month - 1],
+			         time->year);
+			         		
+			// Restart scroll if string changed
+			if (strcmp(buf_date, last_scrolled_date) != 0) {
+			    strcpy(last_scrolled_date, buf_date);
+			    scroll_start(buf_date, 5, 0, 255, 0, 10);  
+			    // y=0, green, 15 px/sec
+			}			
+			// Update scroll every frame
+			scroll_update();
+            break;
+        }*/
+
+
+
+
+
+
+
+/*
+		-------------------------PLANTILLA 1 -------------------------------------
+		
+		case DISPLAY_TIME: {	
+			
+			//------------DATE-------------------------
+            int weekday_index = (time->day_of_week - 1) % 7;
+            char buf3[32];
+            snprintf(buf3, sizeof(buf3), "%s",
+                     dias_semana[weekday_index]);
+
+            draw_text(1, 1, buf3, 0, 255, 0);
+            
+            
+            
+            
+            
+            char buf4[32];
+            snprintf(buf4, sizeof(buf4), "%02d-%02d-%02d",
+                     time->day,time->month,
+                     time->year-2000);
+
+            draw_text(4, 11, buf4, 0, 0, 255);//x=6            			
+			
+			
+            // ----------------- Time -------------------
+            int hour12 = time->hour % 12;
+            if (hour12 == 0) hour12 = 12;
+
+            bool colon_on = (time->second % 2) == 0;  // blink colon
+            char buf_time[16];
+            if (hour12 < 10) {
+                snprintf(buf_time, sizeof(buf_time),
+                         colon_on ? " %1d:%02d" : " %1d %02d",
+                         hour12, time->minute);
+            } else {
+                snprintf(buf_time, sizeof(buf_time),
+                         colon_on ? "%02d:%02d" : "%02d %02d",
+                         hour12, time->minute);
+            }
+
+            draw_text(0, 22, buf_time, 255, 255, 255); // time in white
+
+
+            // ------------------- Temperature ---------------
+            char buf_temp[16];
+            if (temp_valid) {
+                snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
+            } else {
+                snprintf(buf_temp, sizeof(buf_temp), "T E");
+            }
+            draw_text(40, 22, buf_temp, 255, 0, 0);  // temp in red
+
+           
+            break;
+        }
+
+
+*/
