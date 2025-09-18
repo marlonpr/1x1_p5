@@ -32,7 +32,7 @@ void scroll_start(const char *text, int y,
                   int speed_px_per_sec) {
     strncpy(scroll_state.text, text, sizeof(scroll_state.text) - 1);
     scroll_state.text[sizeof(scroll_state.text) - 1] = '\0';
-    scroll_state.x = 63.0f;  // start as float
+    scroll_state.x = 43.0f;  // start as float
     scroll_state.y = y;
     scroll_state.r = r;
     scroll_state.g = g;
@@ -64,7 +64,7 @@ void scroll_update(void) {
 
     int text_width = strlen(scroll_state.text) * FONT_WIDTH;
     if (draw_x + text_width + FONT_WIDTH < 0) {
-        scroll_state.x = 63.0f;
+        scroll_state.x = 43.0f;
     }
 }
 
@@ -119,7 +119,8 @@ static void init_buttons(void)
     gpio_config_t io_conf = {};
     io_conf.pin_bit_mask = (1ULL << PIN_MENU) | (1ULL << PIN_UP) | (1ULL << PIN_DOWN);
     io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;  // enable internal pull-up
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;  // use only external pull-ups
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
     io_conf.intr_type = GPIO_INTR_NEGEDGE;    // trigger on press (falling edge)
     gpio_config(&io_conf);
 
@@ -134,6 +135,7 @@ static void init_buttons(void)
     gpio_isr_handler_add(PIN_UP,   button_isr_handler, (void*)(uint32_t)BTN_UP);
     gpio_isr_handler_add(PIN_DOWN, button_isr_handler, (void*)(uint32_t)BTN_DOWN);
 }
+
 
 
 
@@ -319,11 +321,11 @@ void temp_task(void *arg)
 }
 
 typedef enum {
-    DISPLAY_TIME = 0,
+    DISPLAY_LOGO = 0,
+    DISPLAY_TIME,
+    DISPLAY_LOGO2,
     DISPLAY_DATE,
 	DISPLAY_TEMPERATURE,
-	DISPLAY_LOGO,
-	//DISPLAY_LOGO2,
 	//DISPLAY_LOGO3,
     // Add more modes here later, e.g., DISPLAY_TEMPERATURE
 } display_mode_t;
@@ -342,6 +344,12 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
     clear_back_buffer();
 
     switch (mode) {
+        case DISPLAY_LOGO:{  
+            // other modes...
+            draw_bitmap_rgb(0,0,logo_bitmap, LOGO_WIDTH, LOGO_HEIGHT);
+            break;
+        }
+        
                 case DISPLAY_TIME: {	
             // --- Time ---
             int hour12 = time->hour % 12;
@@ -395,6 +403,13 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 			scroll_update();
             break;        
         }
+        
+        case DISPLAY_LOGO2:{  
+            // other modes...
+            draw_bitmap_rgb(0,0,logo_bitmap2, LOGO_WIDTH, LOGO_HEIGHT);
+            break;
+        }
+      
       
         case DISPLAY_DATE: {
 			
@@ -437,7 +452,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 			         time->year);
 			         
             if (!scroll_state.active) {
-                scroll_start(buf_date, 2, 0, 255, 0, 10);  
+                scroll_start(buf_date, 2, 0, 0, 255, 10);  
                 // y=8, green, 100 ms per pixel (adjust for speed)
             }
 /*
@@ -508,20 +523,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             draw_text(43, 22, buf_temp, 255, 0, 0);  // temp in red
             break;
         }
-        
-
-
-
-
-
-
-
-        case DISPLAY_LOGO:{  
-            // other modes...
-            break;
-        }
     }
-
     swap_buffers();
 }
 
@@ -532,8 +534,8 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 void drawing_task(void *arg)
 {
     ds3231_dev_t *rtc = (ds3231_dev_t *)arg;
-    display_mode_t mode = DISPLAY_TIME;
-    const int mode_interval_s = 20;
+    display_mode_t mode = DISPLAY_LOGO;
+    const int mode_interval_s = 16;
 
     while (1) 
     {
@@ -584,6 +586,32 @@ void drawing_task(void *arg)
 
         switch (mode) 
         {
+			
+
+			case DISPLAY_LOGO: {
+			    TickType_t start_tick = xTaskGetTickCount();
+			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/4 * 1000);
+			    ds3231_time_t now;
+			    scroll_state.active = false;
+
+			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+			        draw_display(DISPLAY_LOGO, &now);  // called frequently for smooth blinking
+
+			        // Small delay to avoid blocking CPU and allow colon toggle
+			        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+			        TickType_t elapsed = 0;
+			        while (elapsed < delay_ms) {
+			            if (stop_flag) break;  // early exit condition
+			            vTaskDelay(pdMS_TO_TICKS(10));
+			            elapsed += 10;
+			        }
+
+			        if (stop_flag) break;
+			    }
+			    break;
+			}
+			
 			case DISPLAY_TIME: {
 			    TickType_t start_tick = xTaskGetTickCount();
 			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
@@ -607,6 +635,32 @@ void drawing_task(void *arg)
 			    }
 			    break;
 			}
+			
+			
+			case DISPLAY_LOGO2: {
+			    TickType_t start_tick = xTaskGetTickCount();
+			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/4 * 1000);
+			    ds3231_time_t now;
+			    scroll_state.active = false;
+
+			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+			        draw_display(DISPLAY_LOGO2, &now);  // called frequently for smooth blinking
+
+			        // Small delay to avoid blocking CPU and allow colon toggle
+			        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+			        TickType_t elapsed = 0;
+			        while (elapsed < delay_ms) {
+			            if (stop_flag) break;  // early exit condition
+			            vTaskDelay(pdMS_TO_TICKS(10));
+			            elapsed += 10;
+			        }
+
+			        if (stop_flag) break;
+			    }
+			    break;
+			    }			
+			
 			case DISPLAY_DATE: {
 			    TickType_t start_tick = xTaskGetTickCount();
 			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
@@ -654,27 +708,9 @@ void drawing_task(void *arg)
 			    }
 			    break;
 			}
-
-            case DISPLAY_LOGO:
-                draw_display(DISPLAY_LOGO, &now);
-                //vTaskDelay(pdMS_TO_TICKS(mode_interval_s * 200));
-                for (int i = 0; i < mode_interval_s; i++) 
-                {
-                    //vTaskDelay(pdMS_TO_TICKS(1000));
-
-					TickType_t delay_ms = 200;
-					TickType_t elapsed = 0;
-					while (elapsed < delay_ms) {
-					    if (stop_flag) break;   // condition to exit early
-					    vTaskDelay(pdMS_TO_TICKS(10));
-					    elapsed += 10;
-					}
-                }
-                break;
         }
-
         mode++;
-        if (mode > DISPLAY_TEMPERATURE) mode = DISPLAY_TIME;
+        if (mode > DISPLAY_TEMPERATURE) mode = DISPLAY_LOGO;
     }
 }
 

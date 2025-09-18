@@ -34,6 +34,10 @@
 #define PIN_B   GPIO_NUM_26
 #define PIN_C   GPIO_NUM_23
 
+
+//temperature sensor GPIO_NUM_27 ( INITIALIZE IN MAIN)
+
+
 // Precalculate bitmasks for speed
 #define BIT_R1 (1 << PIN_R1)
 #define BIT_G1 (1 << PIN_G1)
