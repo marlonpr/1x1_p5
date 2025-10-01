@@ -211,9 +211,11 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
 		    if (btn == BTN_MENU) {
 		        tmp_time.second = 0;
 				ESP_ERROR_CHECK(ds3231_set_time(rtc, &tmp_time));
-				save_brightness(brightness_level);  // <--- save here
+				save_brightness(brightness_level);  // <--- save here			
+                menu_active = 0;
+                printf("Menu end -> exiting\n");				
 		        menu_state = MENU_IDLE;
-				stop_flag = false;
+				stop_flag = false;		
 		    }
 		    break;
     }
@@ -268,15 +270,16 @@ static void menu_task(void *arg)
                 }
             }
 
-            // Auto-repeat only when menu is active
-            if (menu_active && last_btn != -1 && 
-                (now - press_start[last_btn]) >= pdMS_TO_TICKS(REPEAT_DELAY)) 
-            {
-                if ((now - repeat_time) >= pdMS_TO_TICKS(REPEAT_RATE)) {
-                    handle_menu_button(last_btn, rtc);
-                    repeat_time = now;
-                }
-            }
+			// When handling auto-repeat
+			if (menu_active && last_btn != -1 && 
+			    (now - press_start[last_btn]) >= pdMS_TO_TICKS(REPEAT_DELAY)) 
+			{
+			    if ((now - repeat_time) >= pdMS_TO_TICKS(REPEAT_RATE)) {
+			        handle_menu_button(last_btn, rtc);
+			        last_button_time = esp_timer_get_time(); // ✅ refresh timeout only on repeat
+			        repeat_time = now;
+			    }
+			}
         }
 
         // Reset if all released
@@ -289,7 +292,8 @@ static void menu_task(void *arg)
         // Timeout exit
         if (menu_active) {
             int64_t now_us = esp_timer_get_time();
-            if (now_us - last_button_time > MENU_TIMEOUT_US) {
+            if((now_us - last_button_time > MENU_TIMEOUT_US) && menu_state != MENU_YEAR)  
+            {
                 menu_active = 0;
                 printf("Menu timeout -> exiting\n");
                 menu_state = MENU_IDLE;
