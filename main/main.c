@@ -13,6 +13,10 @@ static int64_t last_button_time = 0;
 
 bool stop_flag = false;
 
+bool mode_flag = false;
+
+bool mode_entering = false;
+
 // At top of file (global)
 
 typedef struct {
@@ -169,12 +173,21 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
 			    last_button_time = esp_timer_get_time();  // start inactivity timer
 			    printf("Menu entered\n");
 			}
+            else if (btn == BTN_UP) {
+				//ESP_ERROR_CHECK(ds3231_get_time(rtc, &tmp_time));
+				//menu_state = MENU_BRIGHTNESS;
+				stop_flag = true;
+				mode_flag = true;
+			    //menu_active = 1;
+			    //last_button_time = esp_timer_get_time();  // start inactivity timer
+			    printf("Mode entered\n");
+			}
             break;
 
         case MENU_BRIGHTNESS:
             if (btn == BTN_UP && brightness_level < 10) brightness_level++;
             if (btn == BTN_DOWN && brightness_level > 1) brightness_level--;
-            set_global_brightness(brightness_level * 10);
+            //set_global_brightness(brightness_level * 10);
             if (btn == BTN_MENU) menu_state = MENU_HOUR;
             break;
 
@@ -210,12 +223,13 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
 		    tmp_time.day_of_week = calculate_weekday(tmp_time.day, tmp_time.month, tmp_time.year);
 		    if (btn == BTN_MENU) {
 		        tmp_time.second = 0;
-				ESP_ERROR_CHECK(ds3231_set_time(rtc, &tmp_time));
+				ESP_ERROR_CHECK(ds3231_set_time(rtc, &tmp_time));				
 				save_brightness(brightness_level);  // <--- save here			
                 menu_active = 0;
                 printf("Menu end -> exiting\n");				
 		        menu_state = MENU_IDLE;
-				stop_flag = false;		
+				stop_flag = false;
+				set_global_brightness(brightness_level * 10);		
 		    }
 		    break;
     }
@@ -251,6 +265,9 @@ static void menu_task(void *arg)
                 if (btn == BTN_MENU) {
                     menu_entering = true;
                 }
+                else if (btn == BTN_UP) {
+                    mode_entering = true;
+                }
             } else {
                 // Inside menu
                 if (!(btn == BTN_MENU && ignore_release)) {
@@ -265,6 +282,16 @@ static void menu_task(void *arg)
                 if ((now - press_start[BTN_MENU]) >= pdMS_TO_TICKS(1000)) {
                     handle_menu_button(BTN_MENU, rtc); // enter menu
                     menu_entering = false;
+                    ignore_release = true; // ✅ block next release
+                    last_btn = -1;
+                }
+            }
+            
+            // Check hold for entering mode
+            if (mode_entering && !gpio_get_level(PIN_UP)) {
+                if ((now - press_start[BTN_UP]) >= pdMS_TO_TICKS(1000)) {
+                    handle_menu_button(BTN_UP, rtc); // enter menu
+                    mode_entering = false;
                     ignore_release = true; // ✅ block next release
                     last_btn = -1;
                 }
@@ -286,6 +313,7 @@ static void menu_task(void *arg)
         if (gpio_get_level(PIN_MENU) && gpio_get_level(PIN_UP) && gpio_get_level(PIN_DOWN)) {
             last_btn = -1;
             menu_entering = false;
+            mode_entering = false;
             ignore_release = false; // ✅ clear block when all buttons released
         }
 
@@ -333,6 +361,15 @@ typedef enum {
 	//DISPLAY_LOGO3,
     // Add more modes here later, e.g., DISPLAY_TEMPERATURE
 } display_mode_t;
+
+typedef enum {
+    ROTATION = 0,
+    UNO,
+    DOS,
+    TRES,
+	//DISPLAY_LOGO3,
+    // Add more modes here later, e.g., DISPLAY_TEMPERATURE
+} display_mode_t_0;
 
 const char *dias_semana[] = {
     "DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"
@@ -538,6 +575,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 void drawing_task(void *arg)
 {
     ds3231_dev_t *rtc = (ds3231_dev_t *)arg;
+    display_mode_t_0 mode0 = ROTATION;
     display_mode_t mode = DISPLAY_LOGO;
     const int mode_interval_s = 16;
 
@@ -588,36 +626,138 @@ void drawing_task(void *arg)
         ds3231_time_t now;
         ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
 
-        switch (mode) 
-        {
-			
-
-			case DISPLAY_LOGO: {
-			    TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/4 * 1000);
-			    ds3231_time_t now;
-			    scroll_state.active = false;
-
-			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
-			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
-			        draw_display(DISPLAY_LOGO, &now);  // called frequently for smooth blinking
-
-			        // Small delay to avoid blocking CPU and allow colon toggle
-			        TickType_t delay_ms = 50; // update every 50ms (20Hz)
-			        TickType_t elapsed = 0;
-			        while (elapsed < delay_ms) {
-			            if (stop_flag) break;  // early exit condition
-			            vTaskDelay(pdMS_TO_TICKS(10));
-			            elapsed += 10;
-			        }
-
-			        if (stop_flag) break;
-			    }
-			    break;
+		switch (mode0)
+		{
+			case ROTATION: {
+				switch (mode) 
+        		{			
+					case DISPLAY_LOGO: {
+					    TickType_t start_tick = xTaskGetTickCount();
+					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/4 * 1000);
+					    ds3231_time_t now;
+					    scroll_state.active = false;
+		
+					    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+					        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+					        draw_display(DISPLAY_LOGO, &now);  // called frequently for smooth blinking
+		
+					        // Small delay to avoid blocking CPU and allow colon toggle
+					        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+					        TickType_t elapsed = 0;
+					        while (elapsed < delay_ms) {
+					            if (stop_flag) break;  // early exit condition
+					            vTaskDelay(pdMS_TO_TICKS(10));
+					            elapsed += 10;
+					        }
+		
+					        if (stop_flag) break;
+					    }
+					    break;
+					}
+					
+					case DISPLAY_TIME: {
+					    TickType_t start_tick = xTaskGetTickCount();
+					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+					    ds3231_time_t now;
+					    scroll_state.active = false;
+		
+					    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+					        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+					        draw_display(DISPLAY_TIME, &now);  // called frequently for smooth blinking
+		
+					        // Small delay to avoid blocking CPU and allow colon toggle
+					        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+					        TickType_t elapsed = 0;
+					        while (elapsed < delay_ms) {
+					            if (stop_flag) break;  // early exit condition
+					            vTaskDelay(pdMS_TO_TICKS(10));
+					            elapsed += 10;
+					        }
+		
+					        if (stop_flag) break;
+					    }
+					    break;
+					}
+					
+					
+					case DISPLAY_LOGO2: {
+					    TickType_t start_tick = xTaskGetTickCount();
+					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/4 * 1000);
+					    ds3231_time_t now;
+					    scroll_state.active = false;
+		
+					    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+					        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+					        draw_display(DISPLAY_LOGO2, &now);  // called frequently for smooth blinking
+		
+					        // Small delay to avoid blocking CPU and allow colon toggle
+					        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+					        TickType_t elapsed = 0;
+					        while (elapsed < delay_ms) {
+					            if (stop_flag) break;  // early exit condition
+					            vTaskDelay(pdMS_TO_TICKS(10));
+					            elapsed += 10;
+					        }
+		
+					        if (stop_flag) break;
+					    }
+					    break;
+					    }			
+					
+					case DISPLAY_DATE: {
+					    TickType_t start_tick = xTaskGetTickCount();
+					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+					    ds3231_time_t now;
+					    scroll_state.active = false;
+		
+					    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+					        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+					        draw_display(DISPLAY_DATE, &now);  // called frequently for smooth blinking
+		
+					        // Small delay to avoid blocking CPU and allow colon toggle
+					        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+					        TickType_t elapsed = 0;
+					        while (elapsed < delay_ms) {
+					            if (stop_flag) break;  // early exit condition
+					            vTaskDelay(pdMS_TO_TICKS(10));
+					            elapsed += 10;
+					        }
+		
+					        if (stop_flag) break;
+					    }
+					    break;
+					}
+		
+					case DISPLAY_TEMPERATURE: {
+					    TickType_t start_tick = xTaskGetTickCount();
+					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+					    ds3231_time_t now;
+					    scroll_state.active = false;
+		
+					    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+					        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+					        draw_display(DISPLAY_TEMPERATURE, &now);  // called frequently for smooth blinking
+		
+					        // Small delay to avoid blocking CPU and allow colon toggle
+					        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+					        TickType_t elapsed = 0;
+					        while (elapsed < delay_ms) {
+					            if (stop_flag) break;  // early exit condition
+					            vTaskDelay(pdMS_TO_TICKS(10));
+					            elapsed += 10;
+					        }
+		
+					        if (stop_flag) break;
+					    }
+					    break;
+					}
+		        }
+		        mode++;
+		        if (mode > DISPLAY_TEMPERATURE) mode = DISPLAY_LOGO;
+				break;
 			}
-			
-			case DISPLAY_TIME: {
-			    TickType_t start_tick = xTaskGetTickCount();
+			case UNO: {
+				TickType_t start_tick = xTaskGetTickCount();
 			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
 			    ds3231_time_t now;
 			    scroll_state.active = false;
@@ -637,36 +777,10 @@ void drawing_task(void *arg)
 
 			        if (stop_flag) break;
 			    }
-			    break;
+				break;
 			}
-			
-			
-			case DISPLAY_LOGO2: {
-			    TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/4 * 1000);
-			    ds3231_time_t now;
-			    scroll_state.active = false;
-
-			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
-			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
-			        draw_display(DISPLAY_LOGO2, &now);  // called frequently for smooth blinking
-
-			        // Small delay to avoid blocking CPU and allow colon toggle
-			        TickType_t delay_ms = 50; // update every 50ms (20Hz)
-			        TickType_t elapsed = 0;
-			        while (elapsed < delay_ms) {
-			            if (stop_flag) break;  // early exit condition
-			            vTaskDelay(pdMS_TO_TICKS(10));
-			            elapsed += 10;
-			        }
-
-			        if (stop_flag) break;
-			    }
-			    break;
-			    }			
-			
-			case DISPLAY_DATE: {
-			    TickType_t start_tick = xTaskGetTickCount();
+			case DOS: {
+				TickType_t start_tick = xTaskGetTickCount();
 			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
 			    ds3231_time_t now;
 			    scroll_state.active = false;
@@ -686,11 +800,10 @@ void drawing_task(void *arg)
 
 			        if (stop_flag) break;
 			    }
-			    break;
+				break;
 			}
-
-			case DISPLAY_TEMPERATURE: {
-			    TickType_t start_tick = xTaskGetTickCount();
+			case TRES: {
+				TickType_t start_tick = xTaskGetTickCount();
 			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
 			    ds3231_time_t now;
 			    scroll_state.active = false;
@@ -710,12 +823,24 @@ void drawing_task(void *arg)
 
 			        if (stop_flag) break;
 			    }
-			    break;
+				break;
 			}
-        }
-        mode++;
-        if (mode > DISPLAY_TEMPERATURE) mode = DISPLAY_LOGO;
-    }
+		}
+		if (mode_flag)
+		{
+			//mode0++;
+			mode_flag = false;
+			stop_flag = false;
+			mode0++;
+			
+			
+			clear_back_buffer();
+			swap_buffers();
+			vTaskDelay(pdMS_TO_TICKS(500));
+			
+		} 
+        if (mode0 > TRES) mode0 = ROTATION;				
+	}
 }
 
 
