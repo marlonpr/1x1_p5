@@ -218,8 +218,12 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
 		    break;
 		
 		case MENU_YEAR:
-		    if (btn == BTN_UP) tmp_time.year++;
-		    if (btn == BTN_DOWN && tmp_time.year > 2000) tmp_time.year--;
+		    //if (btn == BTN_UP) tmp_time.year++;
+		    //if (btn == BTN_DOWN && tmp_time.year > 2000) tmp_time.year--;
+			if (btn == BTN_UP)
+			    tmp_time.year = 2000 + ((tmp_time.year - 2000 + 1) % 100);
+			if (btn == BTN_DOWN)
+			    tmp_time.year = 2000 + ((tmp_time.year - 2000 + 99) % 100);
 		    tmp_time.day_of_week = calculate_weekday(tmp_time.day, tmp_time.month, tmp_time.year);
 		    if (btn == BTN_MENU) {
 		        tmp_time.second = 0;
