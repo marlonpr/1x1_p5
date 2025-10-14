@@ -371,6 +371,9 @@ typedef enum {
     // Add more modes here later, e.g., DISPLAY_TEMPERATURE
 } display_mode_t_0;
 
+display_mode_t_0 mode0 = ROTATION;
+
+
 const char *dias_semana[] = {
     "DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"
 };
@@ -575,9 +578,24 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 void drawing_task(void *arg)
 {
     ds3231_dev_t *rtc = (ds3231_dev_t *)arg;
-    display_mode_t_0 mode0 = ROTATION;
+    //display_mode_t_0 mode0 = ROTATION;
     display_mode_t mode = DISPLAY_LOGO;
     const int mode_interval_s = 16;
+    
+    //vTaskDelay(pdMS_TO_TICKS(250));
+	clear_back_buffer();
+	draw_bitmap_rgb(0,0,logo_bitmap, LOGO_WIDTH, LOGO_HEIGHT);
+	swap_buffers();
+	vTaskDelay(pdMS_TO_TICKS(3000));
+	
+	
+	
+	char buf[32];
+	clear_back_buffer();
+	snprintf(buf, sizeof(buf), "MODO:%d", mode0);
+    draw_text(8, 8, buf, 255, 0, 0);
+	swap_buffers();
+	vTaskDelay(pdMS_TO_TICKS(3000));
 
     while (1) 
     {
@@ -832,14 +850,20 @@ void drawing_task(void *arg)
 			mode_flag = false;
 			stop_flag = false;
 			mode0++;
+			save_mode(mode0);
 			
-			
+			char buf[32];
 			clear_back_buffer();
+			snprintf(buf, sizeof(buf), "MODO:%d", mode0);
+            draw_text(8, 8, buf, 255, 0, 0);
 			swap_buffers();
-			vTaskDelay(pdMS_TO_TICKS(500));
+			vTaskDelay(pdMS_TO_TICKS(1000));
 			
 		} 
-        if (mode0 > TRES) mode0 = ROTATION;				
+        if (mode0 > TRES){
+			 mode = DISPLAY_LOGO;
+			 mode0 = ROTATION;		
+		} 		
 	}
 }
 
@@ -855,6 +879,8 @@ void app_main(void)
 	init_nvs_brightness();
 	brightness_level = load_brightness();
 	set_global_brightness(brightness_level * 10);
+	
+	mode0 = load_mode(); 
 
 
     ds3231_dev_t rtc;
@@ -887,7 +913,6 @@ void app_main(void)
 	xTaskCreatePinnedToCore(temp_task,      "TempTask",      1024, NULL, 2, NULL, 1);
 
 	xTaskCreatePinnedToCore(menu_task, "MenuTask", 4096, &rtc, 2, NULL, 1);
-
 
     while (true) 
 	{

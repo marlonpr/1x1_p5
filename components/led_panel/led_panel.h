@@ -143,5 +143,10 @@ void set_global_brightness_pct(uint8_t percent);
 void set_pixel(int x, int y, int r8, int g8, int b8);
 
 void init_nvs_brightness();
+
 void save_brightness(uint8_t level);
 uint8_t load_brightness();
+
+void save_mode(uint8_t value);
+uint8_t load_mode();
+

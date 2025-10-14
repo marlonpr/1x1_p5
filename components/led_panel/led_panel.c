@@ -66,6 +66,29 @@ uint8_t load_brightness()
 }
 
 
+void save_mode(uint8_t value)
+{
+    nvs_handle_t nvs_handle;
+    ESP_ERROR_CHECK(nvs_open("settings", NVS_READWRITE, &nvs_handle));
+    ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "mode", value));
+    ESP_ERROR_CHECK(nvs_commit(nvs_handle));
+    nvs_close(nvs_handle);
+}
+
+uint8_t load_mode()
+{
+    nvs_handle_t nvs_handle;
+    uint8_t value = 4; // default 0 if not set
+
+    if (nvs_open("settings", NVS_READONLY, &nvs_handle) == ESP_OK) {
+        nvs_get_u8(nvs_handle, "mode", &value);
+        nvs_close(nvs_handle);
+    }
+
+    return value;
+}
+
+
 
 
 
