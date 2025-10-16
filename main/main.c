@@ -36,7 +36,7 @@ void scroll_start(const char *text, int y,
                   int speed_px_per_sec) {
     strncpy(scroll_state.text, text, sizeof(scroll_state.text) - 1);
     scroll_state.text[sizeof(scroll_state.text) - 1] = '\0';
-    scroll_state.x = 43.0f;  // start as float
+    scroll_state.x = 37.0f;  // start as float
     scroll_state.y = y;
     scroll_state.r = r;
     scroll_state.g = g;
@@ -68,7 +68,7 @@ void scroll_update(void) {
 
     int text_width = strlen(scroll_state.text) * FONT_WIDTH;
     if (draw_x + text_width + FONT_WIDTH < 0) {
-        scroll_state.x = 43.0f;
+        scroll_state.x = 37.0f;
     }
 }
 
@@ -466,18 +466,77 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             if (hour12 == 0) hour12 = 12;
 
             bool colon_on = (time->second % 2) == 0;  // blink colon
-            char buf_time[16];
-            if (hour12 < 10) {
-                snprintf(buf_time, sizeof(buf_time),
-                         colon_on ? " %1d:%02d" : " %1d %02d",
-                         hour12, time->minute);
-            } else {
-                snprintf(buf_time, sizeof(buf_time),
-                         colon_on ? "%02d:%02d" : "%02d %02d",
-                         hour12, time->minute);
+            
+            
+            char buf_hour[5];
+            
+            char buf_minute[5];
+            
+            
+            
+            if (hour12 < 10) 
+            {
+                snprintf(buf_hour, sizeof(buf_hour), " %1d", hour12);
+                         //colon_on ? " %1d=%02d" : " %1d %02d",
+                         //hour12, time->minute);
+            } else 
+            {
+                snprintf(buf_hour, sizeof(buf_hour), "%02d", hour12); 
+                         //colon_on ? "%02d=%02d" : "%02d %02d",
+                         //hour12, time->minute);
             }
+            //draw_text_2(0, 14, buf_hour, 255, 255, 255); // time in white
+            
+            
+            
+            draw_text_2(3, 14, "10", 255, 255, 255); // time in white
+            
+            
+            
+            draw_text_4(31, 17, colon_on ? "!" : " " , 255, 255, 255); // time in white
+            
+            
+            
+             snprintf(buf_minute, sizeof(buf_minute), "%02d", time->minute);            
+             draw_text_2(36, 14, buf_minute, 255, 255, 255); // time in white
+            
+            
+            
+            
 
-            draw_text(2, 18, buf_time, 255, 255, 255); // time in white
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
             // --- Temperature ---
@@ -487,7 +546,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             } else {
                 snprintf(buf_temp, sizeof(buf_temp), "T E");
             }
-            draw_text(43, 18, buf_temp, 255, 0, 0);  // temp in red
+            //draw_text_2(43, 15, buf_temp, 255, 0, 0);  // temp in red
 
             // --- Date (scrolling) ---
             int weekday_index = (time->day_of_week - 1) % 7;

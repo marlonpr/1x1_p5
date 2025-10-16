@@ -130,6 +130,25 @@ void draw_char_2(int x, int y, char c, int r, int g, int b);
 
 
 
+void draw_char_4(int x, int y, char c, int r, int g, int b);
+
+void draw_text_4(int x, int y, const char *text, int r, int g, int b);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
