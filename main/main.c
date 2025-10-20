@@ -25,6 +25,7 @@ typedef struct {
     int y;
     uint8_t r, g, b;
     bool active;
+    bool temp;
     TickType_t last_tick;
     int speed_px_per_sec;
 } scroll_state_t;
@@ -43,6 +44,7 @@ void scroll_start(const char *text, int y,
     scroll_state.b = b;
     scroll_state.speed_px_per_sec = speed_px_per_sec;
     scroll_state.active = true;
+    scroll_state.temp = false;
     scroll_state.last_tick = xTaskGetTickCount();
 }
 
@@ -67,8 +69,9 @@ void scroll_update(void) {
               scroll_state.r, scroll_state.g, scroll_state.b);
 
     int text_width = strlen(scroll_state.text) * FONT_WIDTH;
-    if (draw_x + text_width + FONT_WIDTH < 0) {
+    if (draw_x + text_width - FONT_WIDTH*2 < 0) {
         scroll_state.x = 37.0f;
+        scroll_state.temp = true;
     }
 }
 
@@ -472,33 +475,62 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             
             char buf_minute[5];
             
+            int pos_hour = 0;
+            
             
             
             if (hour12 < 10) 
             {
                 snprintf(buf_hour, sizeof(buf_hour), " %1d", hour12);
+                
+                pos_hour = -3;
+                
+                
+                
                          //colon_on ? " %1d=%02d" : " %1d %02d",
                          //hour12, time->minute);
             } else 
             {
                 snprintf(buf_hour, sizeof(buf_hour), "%02d", hour12); 
+                
+                pos_hour = 3;
+                
+                
                          //colon_on ? "%02d=%02d" : "%02d %02d",
                          //hour12, time->minute);
             }
-            //draw_text_2(0, 14, buf_hour, 255, 255, 255); // time in white
+            
+                        
+            
+            draw_text_2(pos_hour, 14, buf_hour, 255, 255, 255); // time in white
             
             
             
-            draw_text_2(3, 14, "10", 255, 255, 255); // time in white
             
             
             
-            draw_text_4(31, 17, colon_on ? "!" : " " , 255, 255, 255); // time in white
+            
+            
+            draw_text_4(28 + pos_hour , 17, colon_on ? "!" : " " , 255, 255, 255); // time in white
             
             
             
-             snprintf(buf_minute, sizeof(buf_minute), "%02d", time->minute);            
-             draw_text_2(36, 14, buf_minute, 255, 255, 255); // time in white
+            
+            
+            
+            
+            
+             snprintf(buf_minute, sizeof(buf_minute), "%02d", time->minute);
+             
+                         
+            
+             draw_text_2(33 + pos_hour, 14, buf_minute, 255, 255, 255); // time in white
+             
+             
+             
+             
+             
+             //draw_text_2(6, 14, "9:06", 255, 255, 255); // time in white
             
             
             
@@ -540,10 +572,12 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 
 
             // --- Temperature ---
-            char buf_temp[16];
-            if (temp_valid) {
+            char buf_temp[25];
+            if (temp_valid && scroll_state.temp) {
+                snprintf(buf_temp, sizeof(buf_temp), "TEMP : %d*C", current_temp);
+            } else if (temp_valid) {
                 snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
-            } else {
+            }  else {
                 snprintf(buf_temp, sizeof(buf_temp), "T E");
             }
             //draw_text_2(43, 15, buf_temp, 255, 0, 0);  // temp in red
@@ -562,6 +596,16 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
                 scroll_start(buf_date, 2, 0, 0, 255, 10);  
                 // y=8, green, 100 ms per pixel (adjust for speed)
             }
+            
+            
+            
+            if (scroll_state.temp){
+				scroll_start(buf_temp, 2, 255, 0, 0, 10);
+			}
+            
+            
+            
+            
 /*
 			         		
 			// Restart scroll if string changed
@@ -572,7 +616,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 			}	
 */		
 			// Update scroll every frame
-			scroll_update();
+			scroll_update();							
             break;
         }
         
@@ -790,6 +834,7 @@ void drawing_task(void *arg)
 					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
 					    ds3231_time_t now;
 					    scroll_state.active = false;
+					    scroll_state.temp = false;
 		
 					    while (xTaskGetTickCount() - start_tick < duration_ticks) {
 					        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
@@ -862,7 +907,7 @@ void drawing_task(void *arg)
 			}
 			case DOS: {
 				TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+6) * 1000);
 			    ds3231_time_t now;
 			    scroll_state.active = false;
 
