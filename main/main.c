@@ -39,17 +39,22 @@ void scroll_start(const char *text, int y,
     scroll_state.text[sizeof(scroll_state.text) - 1] = '\0';
     
     
-    scroll_state.x = 37.0f;  // start as float
+    scroll_state.x = 34.0f;  // start as float
+    scroll_state.speed_px_per_sec = speed_px_per_sec;
+    scroll_state.active = true;
     
-    if(scroll_state.temp) scroll_state.x = 30.0f;  // start as float
+    if(scroll_state.temp) {
+		scroll_state.x = 38.0f;  // start as float
+		scroll_state.speed_px_per_sec = speed_px_per_sec-6;
+	}
     
     
     scroll_state.y = y;
     scroll_state.r = r;
     scroll_state.g = g;
     scroll_state.b = b;
-    scroll_state.speed_px_per_sec = speed_px_per_sec;
-    scroll_state.active = true;
+
+    
     scroll_state.temp = false;
     scroll_state.last_tick = xTaskGetTickCount();
 }
@@ -76,7 +81,7 @@ void scroll_update(void) {
 
     int text_width = strlen(scroll_state.text) * FONT_WIDTH;
     if (draw_x + text_width - FONT_WIDTH*2 < 0) {
-        scroll_state.x = 37.0f;
+        scroll_state.x = 34.0f;
         scroll_state.temp = true;
     }
 }
@@ -578,9 +583,9 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 
 
             // --- Temperature ---
-            char buf_temp[25];
+            char buf_temp[20];
             if (temp_valid && scroll_state.temp) {
-                snprintf(buf_temp, sizeof(buf_temp), "TEMP: %d*C", current_temp);
+                snprintf(buf_temp, sizeof(buf_temp), "%d*C", current_temp);
             } else if (temp_valid) {
                 snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
             }  else {
@@ -693,7 +698,7 @@ void drawing_task(void *arg)
     ds3231_dev_t *rtc = (ds3231_dev_t *)arg;
     //display_mode_t_0 mode0 = ROTATION;
     display_mode_t mode = DISPLAY_LOGO;
-    const int mode_interval_s = 16;
+    const int mode_interval_s = 15;
     
     //vTaskDelay(pdMS_TO_TICKS(250));
 	clear_back_buffer();
@@ -764,7 +769,7 @@ void drawing_task(void *arg)
         		{			
 					case DISPLAY_LOGO: {
 					    TickType_t start_tick = xTaskGetTickCount();
-					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/4 * 1000);
+					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/5 * 1000);
 					    ds3231_time_t now;
 					    scroll_state.active = false;
 		
@@ -813,7 +818,7 @@ void drawing_task(void *arg)
 					
 					case DISPLAY_LOGO2: {
 					    TickType_t start_tick = xTaskGetTickCount();
-					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/4 * 1000);
+					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/5 * 1000);
 					    ds3231_time_t now;
 					    scroll_state.active = false;
 		
@@ -913,7 +918,7 @@ void drawing_task(void *arg)
 			}
 			case DOS: {
 				TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+7) * 1000);
+			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+10) * 1000);
 			    ds3231_time_t now;
 			    scroll_state.active = false;
 
