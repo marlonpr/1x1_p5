@@ -37,7 +37,13 @@ void scroll_start(const char *text, int y,
                   int speed_px_per_sec) {
     strncpy(scroll_state.text, text, sizeof(scroll_state.text) - 1);
     scroll_state.text[sizeof(scroll_state.text) - 1] = '\0';
+    
+    
     scroll_state.x = 37.0f;  // start as float
+    
+    if(scroll_state.temp) scroll_state.x = 30.0f;  // start as float
+    
+    
     scroll_state.y = y;
     scroll_state.r = r;
     scroll_state.g = g;
@@ -483,7 +489,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             {
                 snprintf(buf_hour, sizeof(buf_hour), " %1d", hour12);
                 
-                pos_hour = -3;
+                pos_hour = 1;
                 
                 
                 
@@ -493,7 +499,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             {
                 snprintf(buf_hour, sizeof(buf_hour), "%02d", hour12); 
                 
-                pos_hour = 3;
+                pos_hour = 4;
                 
                 
                          //colon_on ? "%02d=%02d" : "%02d %02d",
@@ -511,7 +517,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             
             
             
-            draw_text_4(28 + pos_hour , 17, colon_on ? "!" : " " , 255, 255, 255); // time in white
+            draw_text_4(26 + pos_hour , 17, colon_on ? "!" : " " , 255, 255, 255); // time in white
             
             
             
@@ -574,7 +580,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             // --- Temperature ---
             char buf_temp[25];
             if (temp_valid && scroll_state.temp) {
-                snprintf(buf_temp, sizeof(buf_temp), "TEMP : %d*C", current_temp);
+                snprintf(buf_temp, sizeof(buf_temp), "TEMP: %d*C", current_temp);
             } else if (temp_valid) {
                 snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
             }  else {
@@ -907,7 +913,7 @@ void drawing_task(void *arg)
 			}
 			case DOS: {
 				TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+6) * 1000);
+			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+7) * 1000);
 			    ds3231_time_t now;
 			    scroll_state.active = false;
 

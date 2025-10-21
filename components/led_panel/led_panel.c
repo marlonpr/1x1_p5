@@ -4,6 +4,7 @@
 //#include "font20x40.h"
 #include "font12x16.h"
 #include "font2x9.h"
+#include "font10x15.h"
 #include "soc/gpio_struct.h"  // for GPIO register access
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -413,14 +414,14 @@ void draw_bitmap_rgb(int x0, int y0, const uint32_t *bmp, int w, int h) {
 // set_pixel(x, y, r, g, b) is your existing function
 // VIRT_WIDTH, VIRT_HEIGHT are the virtual drawing dimensions
 
-// ----------------- Draw a single character -----------------                //----------- USE ANOTHER FONT_HEIGHT , WIDTH AND  EG: FONT6X9
+// ----------------- Draw a single character -----------------          !!      //----------- USE ANOTHER FONT_HEIGHT , WIDTH AND  EG: FONT6X9
 void draw_char_2(int x, int y, char c, int r, int g, int b) {
     if (c < 32 || c > 126) c = '?';  // fallback
     int index = c - 32;
 
-    for (int row = 0; row < FONT_HEIGHT_2; row++) {
-        for (int col = 0; col < FONT_WIDTH_2; col++) {
-            if (font12x16[index][row][col]) {
+    for (int row = 0; row < FONT_HEIGHT_5; row++) {
+        for (int col = 0; col < FONT_WIDTH_5; col++) {
+            if (font10x15[index][row][col]) {
                 int px = x + col;
                 int py = y + row;
                 if (px >= 0 && px < VIRT_WIDTH && py >= 0 && py < VIRT_HEIGHT) {
@@ -431,12 +432,12 @@ void draw_char_2(int x, int y, char c, int r, int g, int b) {
     }
 }
 
-// ----------------- Draw a string with 1-pixel spacing -----------------
+// ----------------- Draw a string with 1-pixel spacing -----------------            !!            //----------- USE ANOTHER FONT_HEIGHT , WIDTH AND  EG: FONT6X9
 void draw_text_2(int x, int y, const char *text, int r, int g, int b) {
     int cursor_x = x;
     while (*text) {
         draw_char_2(cursor_x, y, *text, r, g, b);
-        cursor_x += FONT_WIDTH_2 + 1;  // advance cursor by font width + 1 pixel spacing
+        cursor_x += FONT_WIDTH_5 + 1;  // advance cursor by font width + 1 pixel spacing
         text++;
     }
 }
