@@ -44,8 +44,8 @@ void scroll_start(const char *text, int y,
     scroll_state.active = true;
     
     if(scroll_state.temp) {
-		scroll_state.x = 38.0f;  // start as float
-		scroll_state.speed_px_per_sec = speed_px_per_sec-6;
+		scroll_state.x = 32.0f;  // start as float
+		scroll_state.speed_px_per_sec = speed_px_per_sec-7;
 	}
     
     
@@ -918,7 +918,7 @@ void drawing_task(void *arg)
 			}
 			case DOS: {
 				TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+10) * 1000);
+			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+9) * 1000);
 			    ds3231_time_t now;
 			    scroll_state.active = false;
 

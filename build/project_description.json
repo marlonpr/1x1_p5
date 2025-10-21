@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "app-template",
-    "project_version":    "fa7ae37-dirty",
+    "project_version":    "5a84ca0-dirty",
     "project_path":       "C:/Users/Marlon/workspace/1x1_p5",
     "idf_path":           "C:/esp/esp-idf-v5.5",
     "build_dir":          "C:/Users/Marlon/workspace/1x1_p5/build",
