@@ -44,7 +44,7 @@ void scroll_start(const char *text, int y,
     scroll_state.active = true;
     
     if(scroll_state.temp) {
-		scroll_state.x = 32.0f;  // start as float
+		scroll_state.x = 33.0f;  // start as float
 		scroll_state.speed_px_per_sec = speed_px_per_sec-7;
 	}
     
