@@ -4,6 +4,8 @@
 //#include "font20x40.h"
 #include "font12x16.h"
 #include "font2x9.h"
+#include "font5x5.h"
+#include "font3x5.h"
 #include "font10x15.h"
 #include "soc/gpio_struct.h"  // for GPIO register access
 #include "nvs_flash.h"
@@ -477,6 +479,79 @@ void draw_text_4(int x, int y, const char *text, int r, int g, int b) {
         text++;
     }
 }
+
+
+
+
+
+
+
+
+// ----------------- Draw a single character -----------------                //----------- USE ANOTHER FONT_HEIGHT , WIDTH AND  EG: FONT6X9
+
+
+void draw_char_5(int x, int y, char c, int r, int g, int b) {
+    if (c < 32 || c > 126) c = '?';  // fallback
+    int index = c - 32;
+
+    for (int row = 0; row < FONT_HEIGHT_8; row++) {
+        for (int col = 0; col < FONT_WIDTH_8; col++) {
+            if (font5x5[index][row][col]) {
+                int px = x + col;
+                int py = y + row;
+                if (px >= 0 && px < VIRT_WIDTH && py >= 0 && py < VIRT_HEIGHT) {
+                    set_pixel(px, py, r, g, b);
+                }
+            }
+        }
+    }
+}
+
+// ----------------- Draw a string with 1-pixel spacing -----------------
+void draw_text_5(int x, int y, const char *text, int r, int g, int b) {
+    int cursor_x = x;
+    while (*text) {
+        draw_char_5(cursor_x, y, *text, r, g, b);
+        cursor_x += FONT_WIDTH_8 + 1;  // advance cursor by font width + 1 pixel spacing
+        text++;
+    }
+}
+
+
+
+
+
+
+// ----------------- Draw a single character -----------------                //----------- USE ANOTHER FONT_HEIGHT , WIDTH AND  EG: FONT6X9
+
+
+void draw_char_6(int x, int y, char c, int r, int g, int b) {
+    if (c < 32 || c > 126) c = '?';  // fallback
+    int index = c - 32;
+
+    for (int row = 0; row < FONT_HEIGHT_9; row++) {
+        for (int col = 0; col < FONT_WIDTH_9; col++) {
+            if (font3x5[index][row][col]) {
+                int px = x + col;
+                int py = y + row;
+                if (px >= 0 && px < VIRT_WIDTH && py >= 0 && py < VIRT_HEIGHT) {
+                    set_pixel(px, py, r, g, b);
+                }
+            }
+        }
+    }
+}
+
+// ----------------- Draw a string with 1-pixel spacing -----------------
+void draw_text_6(int x, int y, const char *text, int r, int g, int b) {
+    int cursor_x = x;
+    while (*text) {
+        draw_char_6(cursor_x, y, *text, r, g, b);
+        cursor_x += FONT_WIDTH_9 + 1;  // advance cursor by font width + 1 pixel spacing
+        text++;
+    }
+}
+
 
 
 

@@ -39,7 +39,7 @@ void scroll_start(const char *text, int y,
     scroll_state.text[sizeof(scroll_state.text) - 1] = '\0';
     
     
-    scroll_state.x = 34.0f;  // start as float
+    scroll_state.x = 65.0f;  // start as float
     scroll_state.speed_px_per_sec = speed_px_per_sec;
     scroll_state.active = true;
     
@@ -80,9 +80,10 @@ void scroll_update(void) {
               scroll_state.r, scroll_state.g, scroll_state.b);
 
     int text_width = strlen(scroll_state.text) * FONT_WIDTH;
-    if (draw_x + text_width - FONT_WIDTH*2 < 0) {
-        scroll_state.x = 34.0f;
-        scroll_state.temp = true;
+    if (draw_x + text_width + FONT_WIDTH*4 + 1 < 0) {
+        scroll_state.x = 65.0f;
+        //scroll_state.temp = true;
+        scroll_state.active = false;
     }
 }
 
@@ -247,7 +248,8 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
                 printf("Menu end -> exiting\n");				
 		        menu_state = MENU_IDLE;
 				stop_flag = false;
-				set_global_brightness(brightness_level * 10);		
+				set_global_brightness(brightness_level * 10);
+				scroll_state.active = false;		
 		    }
 		    break;
     }
@@ -477,7 +479,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 			
             // --- Time ---
             int hour12 = time->hour % 12;
-            if (hour12 == 0) hour12 = 12;
+            if (hour12 == 0) hour12 = 12;   
 
             bool colon_on = (time->second % 2) == 0;  // blink colon
             
@@ -494,7 +496,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             {
                 snprintf(buf_hour, sizeof(buf_hour), " %1d", hour12);
                 
-                pos_hour = 1;
+                pos_hour = 5;
                 
                 
                 
@@ -504,45 +506,51 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             {
                 snprintf(buf_hour, sizeof(buf_hour), "%02d", hour12); 
                 
-                pos_hour = 4;
+                pos_hour = 11;
                 
                 
                          //colon_on ? "%02d=%02d" : "%02d %02d",
                          //hour12, time->minute);
-            }
+            }             
             
-                        
-            
-            draw_text_2(pos_hour, 14, buf_hour, 255, 255, 255); // time in white
-            
-            
-            
-            
-            
+            draw_text_2(2 + pos_hour, 14, buf_hour, 255, 255, 255); // time in white
             
             
             
             draw_text_4(26 + pos_hour , 17, colon_on ? "!" : " " , 255, 255, 255); // time in white
             
+           
+           //draw_text_4(12, 14, "#" , 255, 0, 0); // time in white
+            
+            
+            
+            if (time->hour > 11){
+				draw_text_5(2 , 16, "&$", 255, 255, 255); // PM
+			} else {
+				draw_text_5(2 , 16, "#$", 255, 255, 255); // AM
+			}				
+            
+            
+            draw_text_6(1 , 26, "!#", 255, 0, 0); // TEMPERATURE VALUE
             
             
             
             
+            draw_text_4(8, 26, "#" , 255, 0, 0); // DEGREE SYMBOL
             
+            
+            
+            draw_text_6(11 , 26, "$", 255, 0, 0); // CELSIUS
             
             
              snprintf(buf_minute, sizeof(buf_minute), "%02d", time->minute);
              
                          
             
-             draw_text_2(33 + pos_hour, 14, buf_minute, 255, 255, 255); // time in white
+             draw_text_2(31 + pos_hour, 14, buf_minute, 255, 255, 255); // time in white
              
              
-             
-             
-             
-             //draw_text_2(6, 14, "9:06", 255, 255, 255); // time in white
-            
+         
             
             
             
@@ -918,9 +926,9 @@ void drawing_task(void *arg)
 			}
 			case DOS: {
 				TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+10) * 1000);
+			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s) * 1000);
 			    ds3231_time_t now;
-			    scroll_state.active = false;
+			    //scroll_state.active = false;
 
 			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
 			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
