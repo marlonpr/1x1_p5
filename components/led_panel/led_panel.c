@@ -99,6 +99,40 @@ uint8_t load_mode()
 
 
 
+
+
+
+void save_format(uint8_t format)
+{
+    nvs_handle_t nvs_handle;
+    ESP_ERROR_CHECK(nvs_open("settings", NVS_READWRITE, &nvs_handle));
+    ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "format", format));
+    ESP_ERROR_CHECK(nvs_commit(nvs_handle));
+    nvs_close(nvs_handle);
+}
+
+uint8_t load_format()
+{
+    nvs_handle_t nvs_handle;
+    uint8_t format = 0; // default 0 if not set
+
+    if (nvs_open("settings", NVS_READONLY, &nvs_handle) == ESP_OK) {
+        nvs_get_u8(nvs_handle, "format", &format);
+        nvs_close(nvs_handle);
+    }
+
+    return format;
+}
+
+
+
+
+
+
+
+
+
+
 //--------------------------------------------------------------------------------------------------------------
 static volatile uint8_t global_brightness = 100;  // 0..100%
 

@@ -182,6 +182,22 @@ void init_nvs_brightness();
 void save_brightness(uint8_t level);
 uint8_t load_brightness();
 
+
+
+
 void save_mode(uint8_t value);
 uint8_t load_mode();
+
+
+void save_format(uint8_t value);
+uint8_t load_format();
+
+
+
+
+
+
+
+
+
 

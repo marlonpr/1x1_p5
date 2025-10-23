@@ -17,6 +17,8 @@ bool mode_flag = false;
 
 bool mode_entering = false;
 
+
+
 // At top of file (global)
 
 typedef struct {
@@ -164,6 +166,7 @@ typedef enum {
     MENU_BRIGHTNESS,
     MENU_HOUR,
     MENU_MINUTE,
+    MENU_FORMAT,
     MENU_DAY,
     MENU_MONTH,
     MENU_YEAR
@@ -173,6 +176,29 @@ static menu_state_t menu_state = MENU_IDLE;
 
 static int brightness_level = 5; // 1–10
 static ds3231_time_t tmp_time;   // temporary time editing
+
+
+
+
+
+
+//bool clock_format = false; 
+
+
+typedef enum {
+    OFF = 0,
+    ON,
+} hour_format;
+
+hour_format clock_format = OFF;
+
+
+
+
+
+
+
+
 
 static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
 {
@@ -216,9 +242,22 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
         case MENU_MINUTE:
             if (btn == BTN_UP) tmp_time.minute = (tmp_time.minute + 1) % 60;
             if (btn == BTN_DOWN) tmp_time.minute = (tmp_time.minute + 59) % 60;
-            if (btn == BTN_MENU) menu_state = MENU_DAY;
-            break;
+            if (btn == BTN_MENU) menu_state = MENU_FORMAT;
+            break;    
+            
+            
+            
+		case MENU_FORMAT:
+		    if (btn == BTN_UP || btn == BTN_DOWN) 
+		        clock_format = 1 - clock_format;  // always toggles 0↔1
+		    if (btn == BTN_MENU) menu_state = MENU_DAY;
+		    break;
 
+
+		    
+		    
+		    
+		    
 		case MENU_DAY:
 		    if (btn == BTN_UP) tmp_time.day = (tmp_time.day % 31) + 1;
 		    if (btn == BTN_DOWN) tmp_time.day = ((tmp_time.day + 29) % 31) + 1;
@@ -243,8 +282,18 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
 		    tmp_time.day_of_week = calculate_weekday(tmp_time.day, tmp_time.month, tmp_time.year);
 		    if (btn == BTN_MENU) {
 		        tmp_time.second = 0;
-				ESP_ERROR_CHECK(ds3231_set_time(rtc, &tmp_time));				
-				save_brightness(brightness_level);  // <--- save here			
+				ESP_ERROR_CHECK(ds3231_set_time(rtc, &tmp_time));
+				
+				
+				
+								
+								
+				save_brightness(brightness_level);  // <--- save here
+					
+				save_format(clock_format);  // <--- save here
+				
+				
+						
                 menu_active = 0;
                 printf("Menu end -> exiting\n");				
 		        menu_state = MENU_IDLE;
@@ -416,9 +465,35 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
         }
         
                 case DISPLAY_TIME: {	
+            
+            
+            
+            
+            
             // --- Time ---
-            int hour12 = time->hour % 12;
-            if (hour12 == 0) hour12 = 12;
+            int hour12 = 0;
+            
+            if (!clock_format){
+				hour12 = time->hour % 12;
+				if (hour12 == 0) hour12 = 12;	
+			} else {
+				hour12 = time->hour;
+			}
+			
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
 
             char buf_time[16];
             if (hour12 < 10) {
@@ -478,18 +553,85 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
       
         case DISPLAY_DATE: {
 			
-            // --- Time ---
-            int hour12 = time->hour % 12;
-            if (hour12 == 0) hour12 = 12;   
-
-            bool colon_on = (time->second % 2) == 0;  // blink colon
+			
+	
+            
             
             
             char buf_hour[5];
             
             char buf_minute[5];
             
+            char buf_second[5];
+            
             int pos_hour = 0;
+            
+	
+	
+			bool colon_on = (time->second % 2) == 0;  // blink colon
+	
+			snprintf(buf_second, sizeof(buf_second), "%02d", time->second);	
+	
+			
+			
+			
+			
+            // --- Time ---
+            int hour12 = 0;
+            
+            if (!clock_format){
+				hour12 = time->hour % 12;
+				if (hour12 == 0) hour12 = 12;	
+				
+				
+				if (time->hour > 11){
+					draw_text_5(51 , 16, "&$", 255, 255, 255); // PM
+				} else {
+					draw_text_5(51 , 16, "#$", 255, 255, 255); // AM
+				}				
+            
+				
+			} else {
+				hour12 = time->hour;
+				
+				
+				// 
+				
+				draw_text_5(51 , 16, buf_second, 255, 255, 255); // seconds
+				
+						            
+             //------------------------------------------------------------ SECONDS ------------------------------------------
+			}
+			
+            
+
+
+
+
+
+
+
+
+            
+  
+            
+            
+            
+            
+            
+            
+             //------------------------------------------------------------ MINUTES ------------------------------------------
+           
+           
+             snprintf(buf_minute, sizeof(buf_minute), "%02d", time->minute);
+             
+                         
+            
+             //draw_text_2(31 + pos_hour, 14, buf_minute, 255, 255, 255); // time in white
+            
+           
+           //------------------------------------------------------------------------------------------------------------------------
+            
             
             
             
@@ -497,9 +639,11 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             {
                 snprintf(buf_hour, sizeof(buf_hour), " %1d", hour12);
                 
-                pos_hour = 5;
+                pos_hour = -4;
                 
+                draw_text_2(pos_hour, 14, buf_hour, 255, 255, 255); // HOUR in white
                 
+                draw_text_2(27 + pos_hour, 14, buf_minute, 255, 255, 255); // MINUTE in white
                 
                          //colon_on ? " %1d=%02d" : " %1d %02d",
                          //hour12, time->minute);
@@ -507,32 +651,48 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             {
                 snprintf(buf_hour, sizeof(buf_hour), "%02d", hour12); 
                 
-                pos_hour = 11;
+                pos_hour = 0;
+                
+                
+                draw_text_2(pos_hour, 14, buf_hour, 255, 255, 255); // HOUR in white
+                
+                draw_text_2(27 + pos_hour, 14, buf_minute, 255, 255, 255); // MINUTE in white
                 
                 
                          //colon_on ? "%02d=%02d" : "%02d %02d",
                          //hour12, time->minute);
             }             
             
-            draw_text_2(2 + pos_hour, 14, buf_hour, 255, 255, 255); // time in white
+            //draw_text_2(2 + pos_hour, 14, buf_hour, 255, 255, 255); // time in white
             
             
             
-            draw_text_4(26 + pos_hour , 17, colon_on ? "!" : " " , 255, 255, 255); // time in white
+            
+            
+            
+            if (!clock_format) {
+				draw_text_4(23 + pos_hour , 17, colon_on ? "!" : " " , 255, 255, 255); // 	COLON BLINK
+			} else {
+				draw_text_4(23 + pos_hour , 17,  "!" , 255, 255, 255); // COLON FIXED	
+			}
+            
+   
+            
+            
+            
+            
+            
             
            
            //draw_text_4(12, 14, "#" , 255, 0, 0); // time in white
+           
+
+           
             
             
+
             
-            if (time->hour > 11){
-				draw_text_5(2 , 16, "&$", 255, 255, 255); // PM
-			} else {
-				draw_text_5(2 , 16, "#$", 255, 255, 255); // AM
-			}				
-            
-            
-            //draw_text_6(1 , 26, "!#", 255, 0, 0); // TEMPERATURE VALUE  // IN TEMPERATURE SECTION .............!!!!  
+            //----------------------------------TEMPERATURE SECTION .............!!!!  
                         // --- Temperature ---
             char buf_temp[20];
             if (temp_valid && scroll_state.temp) {
@@ -543,23 +703,21 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
                 snprintf(buf_temp, sizeof(buf_temp), "T E");
             }            
             //draw_text_2(43, 15, buf_temp, 255, 0, 0);  // temp in red
-            draw_text_6(1 , 26, buf_temp, 255, 0, 0);
             
             
             
-            
-            draw_text_4(8, 26, "#" , 255, 0, 0); // DEGREE SYMBOL
-            
+            draw_text_6(50 , 26, buf_temp, 255, 0, 0); // TEMPERATURE VALUE   
             
             
-            draw_text_6(11 , 26, "$", 255, 0, 0); // CELSIUS
+            
+            draw_text_4(57, 26, "#" , 255, 0, 0); // DEGREE SYMBOL
             
             
-             snprintf(buf_minute, sizeof(buf_minute), "%02d", time->minute);
-             
-                         
             
-             draw_text_2(31 + pos_hour, 14, buf_minute, 255, 255, 255); // time in white
+            draw_text_6(60 , 26, "$", 255, 0, 0); // CELSIUS
+            
+            
+
              
              
 
@@ -626,12 +784,36 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
                      time->day,time->month,
                      time->year-2000);
 
-            draw_text(4, 11, buf4, 0, 0, 255);//x=6            			
+            draw_text(4, 11, buf4, 0, 0, 255);//x=6            	
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            		
 			
+			            // --- Time ---
+            int hour12 = 0;
+            
+            if (!clock_format){
+				hour12 = time->hour % 12;
+				if (hour12 == 0) hour12 = 12;	
+			} else {
+				hour12 = time->hour;
+			}
 			
-            // ----------------- Time -------------------
-            int hour12 = time->hour % 12;
-            if (hour12 == 0) hour12 = 12;
+            
+            
+            
+            
+            
+            
+            
+            
 
             bool colon_on = (time->second % 2) == 0;  // blink colon
             char buf_time[16];
@@ -710,6 +892,15 @@ void drawing_task(void *arg)
                 case MENU_MINUTE:
                     snprintf(buf, sizeof(buf), "MINUTO:%02d", tmp_time.minute);
                     draw_text(1, 8, buf, 255, 0, 0);
+                    break;
+                case MENU_FORMAT:
+                    
+                    
+                    
+                    draw_text(1 , 8, !clock_format ? "24HRS:OFF" : "24HRS:ON" , 255, 0, 0); 
+                    
+                    
+                    
                     break;
                 case MENU_DAY:
                     snprintf(buf, sizeof(buf), " DIA:%02d", tmp_time.day);
@@ -969,10 +1160,26 @@ void app_main(void)
 	//set_global_brightness(100);  // 50% brightness
 
 	init_nvs_brightness();
+	
+	
 	brightness_level = load_brightness();
+	
+	if (brightness_level > 10) brightness_level = 10;
+	
+	
 	set_global_brightness(brightness_level * 10);
 	
+	
+	
 	mode0 = load_mode(); 
+	
+	if (mode0 > 4) mode0 = 4;
+	
+	
+	clock_format = load_format();
+	
+	
+	if (clock_format > 1) clock_format = 0; 
 
 
     ds3231_dev_t rtc;
