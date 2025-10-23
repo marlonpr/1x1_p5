@@ -17,6 +17,12 @@ bool mode_flag = false;
 
 bool mode_entering = false;
 
+bool format_flag = false;
+
+bool format_entering = false;
+
+
+
 
 
 // At top of file (global)
@@ -166,7 +172,6 @@ typedef enum {
     MENU_BRIGHTNESS,
     MENU_HOUR,
     MENU_MINUTE,
-    MENU_FORMAT,
     MENU_DAY,
     MENU_MONTH,
     MENU_YEAR
@@ -224,6 +229,19 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
 			    //last_button_time = esp_timer_get_time();  // start inactivity timer
 			    printf("Mode entered\n");
 			}
+			
+			
+            else if (btn == BTN_DOWN) {
+				//ESP_ERROR_CHECK(ds3231_get_time(rtc, &tmp_time));
+				//menu_state = MENU_BRIGHTNESS;
+				stop_flag = true;
+				format_flag = true;
+				scroll_state.active = false;
+			    //menu_active = 1;
+			    //last_button_time = esp_timer_get_time();  // start inactivity timer
+			    printf("Format entered\n");
+			}			
+			
             break;
 
         case MENU_BRIGHTNESS:
@@ -242,16 +260,11 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
         case MENU_MINUTE:
             if (btn == BTN_UP) tmp_time.minute = (tmp_time.minute + 1) % 60;
             if (btn == BTN_DOWN) tmp_time.minute = (tmp_time.minute + 59) % 60;
-            if (btn == BTN_MENU) menu_state = MENU_FORMAT;
+            if (btn == BTN_MENU) menu_state = MENU_DAY;
             break;    
             
             
             
-		case MENU_FORMAT:
-		    if (btn == BTN_UP || btn == BTN_DOWN) 
-		        clock_format = 1 - clock_format;  // always toggles 0↔1
-		    if (btn == BTN_MENU) menu_state = MENU_DAY;
-		    break;
 
 
 		    
@@ -290,7 +303,7 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
 								
 				save_brightness(brightness_level);  // <--- save here
 					
-				save_format(clock_format);  // <--- save here
+				//save_format(clock_format);  // <--- save here
 				
 				
 						
@@ -338,6 +351,9 @@ static void menu_task(void *arg)
                 else if (btn == BTN_UP) {
                     mode_entering = true;
                 }
+                else if (btn == BTN_DOWN) {
+                    format_entering = true;
+                }
             } else {
                 // Inside menu
                 if (!(btn == BTN_MENU && ignore_release)) {
@@ -366,6 +382,16 @@ static void menu_task(void *arg)
                     last_btn = -1;
                 }
             }
+            
+            // Check hold for entering format
+            if (format_entering && !gpio_get_level(PIN_DOWN)) {
+                if ((now - press_start[BTN_DOWN]) >= pdMS_TO_TICKS(1000)) {
+                    handle_menu_button(BTN_DOWN, rtc); // enter menu
+                    format_entering = false;
+                    ignore_release = true; // ✅ block next release
+                    last_btn = -1;
+                }
+            }
 
 			// When handling auto-repeat
 			if (menu_active && last_btn != -1 && 
@@ -384,6 +410,7 @@ static void menu_task(void *arg)
             last_btn = -1;
             menu_entering = false;
             mode_entering = false;
+            format_entering = false;
             ignore_release = false; // ✅ clear block when all buttons released
         }
 
@@ -893,15 +920,6 @@ void drawing_task(void *arg)
                     snprintf(buf, sizeof(buf), "MINUTO:%02d", tmp_time.minute);
                     draw_text(1, 8, buf, 255, 0, 0);
                     break;
-                case MENU_FORMAT:
-                    
-                    
-                    
-                    draw_text(1 , 8, !clock_format ? "24HRS:OFF" : "24HRS:ON" , 255, 0, 0); 
-                    
-                    
-                    
-                    break;
                 case MENU_DAY:
                     snprintf(buf, sizeof(buf), " DIA:%02d", tmp_time.day);
                     draw_text(0, 8, buf, 255, 0, 0);
@@ -1127,6 +1145,45 @@ void drawing_task(void *arg)
 				break;
 			}
 		}
+		
+		
+		
+		
+		
+		
+		if (format_flag)
+		{
+			
+			format_flag = false;
+			stop_flag = false;
+			
+			clock_format = 1 - clock_format;  // always toggles 0↔1
+
+			
+			
+			save_format(clock_format);
+			
+			clear_back_buffer();
+			
+			
+			
+            draw_text(1 , 8, !clock_format ? "24HRS:OFF" : "24HRS:ON" , 255, 0, 0); 
+            
+            
+			swap_buffers();
+			vTaskDelay(pdMS_TO_TICKS(1000));
+			
+		}		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
 		if (mode_flag)
 		{
 			//mode0++;
@@ -1143,10 +1200,15 @@ void drawing_task(void *arg)
 			vTaskDelay(pdMS_TO_TICKS(1000));
 			
 		} 
+		
+		
         if (mode0 > TRES){
 			 mode = DISPLAY_LOGO;
 			 mode0 = ROTATION;		
-		} 		
+		} 
+		
+		
+				
 	}
 }
 
