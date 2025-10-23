@@ -43,10 +43,10 @@ void scroll_start(const char *text, int y,
     scroll_state.speed_px_per_sec = speed_px_per_sec;
     scroll_state.active = true;
     
-    if(scroll_state.temp) {
-		scroll_state.x = 30.0f;  // start as float
-		scroll_state.speed_px_per_sec = speed_px_per_sec-7;
-	}
+    //if(scroll_state.temp) {
+	//	scroll_state.x = 30.0f;  // start as float
+	//	scroll_state.speed_px_per_sec = speed_px_per_sec-7;
+	//}
     
     
     scroll_state.y = y;
@@ -193,6 +193,7 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
 				//menu_state = MENU_BRIGHTNESS;
 				stop_flag = true;
 				mode_flag = true;
+				scroll_state.active = false;
 			    //menu_active = 1;
 			    //last_button_time = esp_timer_get_time();  // start inactivity timer
 			    printf("Mode entered\n");
@@ -531,7 +532,18 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 			}				
             
             
-            draw_text_6(1 , 26, "!#", 255, 0, 0); // TEMPERATURE VALUE
+            //draw_text_6(1 , 26, "!#", 255, 0, 0); // TEMPERATURE VALUE  // IN TEMPERATURE SECTION .............!!!!  
+                        // --- Temperature ---
+            char buf_temp[20];
+            if (temp_valid && scroll_state.temp) {
+                snprintf(buf_temp, sizeof(buf_temp), "%d*C", current_temp);
+            } else if (temp_valid) {
+                snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
+            }  else {
+                snprintf(buf_temp, sizeof(buf_temp), "T E");
+            }            
+            //draw_text_2(43, 15, buf_temp, 255, 0, 0);  // temp in red
+            draw_text_6(1 , 26, buf_temp, 255, 0, 0);
             
             
             
@@ -550,56 +562,9 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
              draw_text_2(31 + pos_hour, 14, buf_minute, 255, 255, 255); // time in white
              
              
-         
+
             
             
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            // --- Temperature ---
-            char buf_temp[20];
-            if (temp_valid && scroll_state.temp) {
-                snprintf(buf_temp, sizeof(buf_temp), "%d*C", current_temp);
-            } else if (temp_valid) {
-                snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
-            }  else {
-                snprintf(buf_temp, sizeof(buf_temp), "T E");
-            }
-            //draw_text_2(43, 15, buf_temp, 255, 0, 0);  // temp in red
 
             // --- Date (scrolling) ---
             int weekday_index = (time->day_of_week - 1) % 7;
@@ -618,9 +583,9 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             
             
             
-            if (scroll_state.temp){
-				scroll_start(buf_temp, 2, 255, 0, 0, 10);
-			}
+            //if (scroll_state.temp){
+			//	scroll_start(buf_temp, 2, 255, 0, 0, 10);
+			//}
             
             
             
@@ -706,7 +671,7 @@ void drawing_task(void *arg)
     ds3231_dev_t *rtc = (ds3231_dev_t *)arg;
     //display_mode_t_0 mode0 = ROTATION;
     display_mode_t mode = DISPLAY_LOGO;
-    const int mode_interval_s = 15;
+    const int mode_interval_s = 22;
     
     //vTaskDelay(pdMS_TO_TICKS(250));
 	clear_back_buffer();
@@ -777,7 +742,7 @@ void drawing_task(void *arg)
         		{			
 					case DISPLAY_LOGO: {
 					    TickType_t start_tick = xTaskGetTickCount();
-					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/5 * 1000);
+					    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+2)/6 * 1000);
 					    ds3231_time_t now;
 					    scroll_state.active = false;
 		
@@ -826,7 +791,7 @@ void drawing_task(void *arg)
 					
 					case DISPLAY_LOGO2: {
 					    TickType_t start_tick = xTaskGetTickCount();
-					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s/5 * 1000);
+					    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+2)/6 * 1000);
 					    ds3231_time_t now;
 					    scroll_state.active = false;
 		
@@ -850,7 +815,7 @@ void drawing_task(void *arg)
 					
 					case DISPLAY_DATE: {
 					    TickType_t start_tick = xTaskGetTickCount();
-					    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+					    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s) * 1000);
 					    ds3231_time_t now;
 					    scroll_state.active = false;
 					    scroll_state.temp = false;
@@ -928,7 +893,7 @@ void drawing_task(void *arg)
 				TickType_t start_tick = xTaskGetTickCount();
 			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s) * 1000);
 			    ds3231_time_t now;
-			    //scroll_state.active = false;
+			    scroll_state.active = false;
 
 			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
 			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
