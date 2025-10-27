@@ -47,7 +47,7 @@ void scroll_start(const char *text, int y,
     scroll_state.text[sizeof(scroll_state.text) - 1] = '\0';
     
     
-    scroll_state.x = 65.0f;  // start as float
+    scroll_state.x = 63.0f;  // start as float
     scroll_state.speed_px_per_sec = speed_px_per_sec;
     scroll_state.active = true;
     
@@ -88,8 +88,8 @@ void scroll_update(void) {
               scroll_state.r, scroll_state.g, scroll_state.b);
 
     int text_width = strlen(scroll_state.text) * FONT_WIDTH;
-    if (draw_x + text_width + FONT_WIDTH*4 + 1 < 0) {
-        scroll_state.x = 65.0f;
+    if (draw_x + text_width + FONT_WIDTH*4 < 0) {
+        scroll_state.x = 63.0f;
         //scroll_state.temp = true;
         scroll_state.active = false;
     }
@@ -578,30 +578,13 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
         }
       
       
-        case DISPLAY_DATE: {
+        case DISPLAY_DATE: { 
 			
-			
-	
-            
-            
-            
-            char buf_hour[5];
-            
-            char buf_minute[5];
-            
-            char buf_second[5];
-            
-            int pos_hour = 0;
-            
-	
-	
-			bool colon_on = (time->second % 2) == 0;  // blink colon
-	
-			snprintf(buf_second, sizeof(buf_second), "%02d", time->second);	
-	
-			
-			
-			
+            char buf_hour[5];            
+            char buf_minute[5];            
+            char buf_second[5];            
+            int pos_hour = 0;        
+			bool colon_on = (time->second % 2) == 0;  // blink colon		
 			
             // --- Time ---
             int hour12 = 0;
@@ -615,82 +598,66 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 					draw_text_5(51 , 16, "&$", 255, 255, 255); // PM
 				} else {
 					draw_text_5(51 , 16, "#$", 255, 255, 255); // AM
-				}				
-            
+				}				            
 				
 			} else {
 				hour12 = time->hour;
 				
-				
-				// 
-				
-				draw_text_5(51 , 16, buf_second, 255, 255, 255); // seconds
-				
-						            
-             //------------------------------------------------------------ SECONDS ------------------------------------------
-			}
+			   //------------------------------------------------------------ SECONDS ------------------------------------------					 
+				snprintf(buf_second, sizeof(buf_second), "%02d", time->second);
+				draw_text_5(51 , 16, buf_second, 255, 255, 255); // seconds			                         
+			}   
 			
-            
-
-
-
-
-
-
-
-
-            
-  
-            
-            
-            
-            
-            
-            
+			         
+ 
+ 
+ 
              //------------------------------------------------------------ MINUTES ------------------------------------------
-           
-           
-             snprintf(buf_minute, sizeof(buf_minute), "%02d", time->minute);
-             
-                         
-            
-             //draw_text_2(31 + pos_hour, 14, buf_minute, 255, 255, 255); // time in white
-            
-           
-           //------------------------------------------------------------------------------------------------------------------------
-            
-            
-            
+            snprintf(buf_minute, sizeof(buf_minute), "%02d", time->minute);
+ 
+ 
+ 
+ 
             
             if (hour12 < 10) 
             {
+                //------------------------------------------------------------ HOURS H ------------------------------------------
                 snprintf(buf_hour, sizeof(buf_hour), " %1d", hour12);
                 
-                pos_hour = -4;
+                pos_hour = -1;
                 
-                draw_text_2(pos_hour, 14, buf_hour, 255, 255, 255); // HOUR in white
                 
-                draw_text_2(27 + pos_hour, 14, buf_minute, 255, 255, 255); // MINUTE in white
                 
-                         //colon_on ? " %1d=%02d" : " %1d %02d",
-                         //hour12, time->minute);
+                
+                draw_text_2(pos_hour - 1, 14, buf_hour, 255, 255, 255); // HOUR 
+                       
+            	draw_text_2(27 + pos_hour + 1, 14, buf_minute, 255, 255, 255); // MINUTE 
+                
+                
+                
+                
+                
             } else 
             {
+                //------------------------------------------------------------ HOURS HH ------------------------------------------
                 snprintf(buf_hour, sizeof(buf_hour), "%02d", hour12); 
                 
                 pos_hour = 0;
                 
                 
-                draw_text_2(pos_hour, 14, buf_hour, 255, 255, 255); // HOUR in white
-                
-                draw_text_2(27 + pos_hour, 14, buf_minute, 255, 255, 255); // MINUTE in white
                 
                 
-                         //colon_on ? "%02d=%02d" : "%02d %02d",
-                         //hour12, time->minute);
+                draw_text_2(pos_hour, 14, buf_hour, 255, 255, 255); // HOUR         
+            	draw_text_2(27 + pos_hour, 14, buf_minute, 255, 255, 255); // MINUTE 
+                
+                
+                
             }             
-            
-            //draw_text_2(2 + pos_hour, 14, buf_hour, 255, 255, 255); // time in white
+
+ 
+
+
+
             
             
             
@@ -702,21 +669,17 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 			} else {
 				draw_text_4(23 + pos_hour , 17,  "!" , 255, 255, 255); // COLON FIXED	
 			}
-            
-   
-            
-            
-            
-            
-            
-            
-           
-           //draw_text_4(12, 14, "#" , 255, 0, 0); // time in white
-           
+                  
+                   
 
-           
-            
-            
+
+
+
+
+
+
+
+
 
             
             //----------------------------------TEMPERATURE SECTION .............!!!!  
@@ -733,14 +696,8 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             
             
             
-            draw_text_6(50 , 26, buf_temp, 255, 0, 0); // TEMPERATURE VALUE   
-            
-            
-            
+            draw_text_6(50 , 26, buf_temp, 255, 0, 0); // TEMPERATURE VALUE         
             draw_text_4(57, 26, "#" , 255, 0, 0); // DEGREE SYMBOL
-            
-            
-            
             draw_text_6(60 , 26, "$", 255, 0, 0); // CELSIUS
             
             
@@ -768,22 +725,10 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             
             
             
-            //if (scroll_state.temp){
-			//	scroll_start(buf_temp, 2, 255, 0, 0, 10);
-			//}
+
             
             
-            
-            
-/*
-			         		
-			// Restart scroll if string changed
-			if (strcmp(buf_date, last_scrolled_date) != 0) {
-			    strcpy(last_scrolled_date, buf_date);
-			    scroll_start(buf_date, 5, 0, 255, 0, 10);  
-			    // y=0, green, 15 px/sec
-			}	
-*/		
+	
 			// Update scroll every frame
 			scroll_update();							
             break;
@@ -880,7 +825,7 @@ void drawing_task(void *arg)
     ds3231_dev_t *rtc = (ds3231_dev_t *)arg;
     //display_mode_t_0 mode0 = ROTATION;
     display_mode_t mode = DISPLAY_LOGO;
-    const int mode_interval_s = 22;
+    const int mode_interval_s = 21;
     
     //vTaskDelay(pdMS_TO_TICKS(250));
 	clear_back_buffer();
@@ -951,7 +896,7 @@ void drawing_task(void *arg)
         		{			
 					case DISPLAY_LOGO: {
 					    TickType_t start_tick = xTaskGetTickCount();
-					    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+2)/6 * 1000);
+					    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s)/7 * 1000);
 					    ds3231_time_t now;
 					    scroll_state.active = false;
 		
@@ -1000,7 +945,7 @@ void drawing_task(void *arg)
 					
 					case DISPLAY_LOGO2: {
 					    TickType_t start_tick = xTaskGetTickCount();
-					    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s+2)/6 * 1000);
+					    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s)/7 * 1000);
 					    ds3231_time_t now;
 					    scroll_state.active = false;
 		
@@ -1079,7 +1024,7 @@ void drawing_task(void *arg)
 				TickType_t start_tick = xTaskGetTickCount();
 			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
 			    ds3231_time_t now;
-			    scroll_state.active = false;
+			    //scroll_state.active = false;
 
 			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
 			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
@@ -1102,7 +1047,7 @@ void drawing_task(void *arg)
 				TickType_t start_tick = xTaskGetTickCount();
 			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s) * 1000);
 			    ds3231_time_t now;
-			    scroll_state.active = false;
+			    //scroll_state.active = false;
 
 			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
 			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
@@ -1125,7 +1070,7 @@ void drawing_task(void *arg)
 				TickType_t start_tick = xTaskGetTickCount();
 			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
 			    ds3231_time_t now;
-			    scroll_state.active = false;
+			    //scroll_state.active = false;
 
 			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
 			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
@@ -1144,46 +1089,20 @@ void drawing_task(void *arg)
 			    }
 				break;
 			}
-		}
-		
-		
-		
-		
-		
-		
-		if (format_flag)
-		{
-			
-			format_flag = false;
-			stop_flag = false;
-			
-			clock_format = 1 - clock_format;  // always toggles 0↔1
-
-			
-			
-			save_format(clock_format);
-			
-			clear_back_buffer();
-			
-			
-			
-            draw_text(1 , 8, !clock_format ? "24HRS:OFF" : "24HRS:ON" , 255, 0, 0); 
-            
-            
-			swap_buffers();
-			vTaskDelay(pdMS_TO_TICKS(1000));
-			
 		}		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+				
+		if (format_flag)
+		{			
+			format_flag = false;
+			stop_flag = false;			
+			clock_format = 1 - clock_format;  // always toggles 0↔1					
+			save_format(clock_format);			
+			clear_back_buffer();			
+            draw_text(1 , 8, !clock_format ? "24HRS:OFF" : "24HRS:ON" , 255, 0, 0);                       
+			swap_buffers();
+			vTaskDelay(pdMS_TO_TICKS(1000));			
+		}				
+				
 		if (mode_flag)
 		{
 			//mode0++;
@@ -1199,16 +1118,12 @@ void drawing_task(void *arg)
 			swap_buffers();
 			vTaskDelay(pdMS_TO_TICKS(1000));
 			
-		} 
-		
+		} 		
 		
         if (mode0 > TRES){
 			 mode = DISPLAY_LOGO;
 			 mode0 = ROTATION;		
-		} 
-		
-		
-				
+		} 								
 	}
 }
 
@@ -1285,186 +1200,18 @@ void app_main(void)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 /*
-			//-----------------------------PLANTILLA 2---------------------------
-
-        case DISPLAY_TIME: {	
-            // --- Time ---
-            int hour12 = time->hour % 12;
-            if (hour12 == 0) hour12 = 12;
-
-            char buf_time[16];
-            if (hour12 < 10) {
-                snprintf(buf_time, sizeof(buf_time), " %1d:%02d:%02d" ,
-                         hour12, time->minute, time->second);
-            } else {
-                snprintf(buf_time, sizeof(buf_time), "%02d:%02d:%02d" ,
-                         hour12, time->minute, time->second);
-            }
-
-            draw_text(3, 1, buf_time, 255, 255, 255); // time in white
-
-            // --- Temperature ---
-            char buf_temp[16];
-            if (temp_valid) {
-                snprintf(buf_temp, sizeof(buf_temp), "%d*C", current_temp);
-            } else {
-                snprintf(buf_temp, sizeof(buf_temp), "T E");
-            }
-            draw_text(20, 22, buf_temp, 255, 0, 0);  // temp in red
-
-            // --- Date (scrolling) ---
-            int weekday_index = (time->day_of_week - 1) % 7;
-            static char buf_date[64];        
-			snprintf(buf_date, sizeof(buf_date), "%s %d %s %04d",
-			         dias_semana[weekday_index],
-			         time->day,
-			         meses[time->month - 1],
-			         time->year);
-			         		
-			// Restart scroll if string changed
-			if (strcmp(buf_date, last_scrolled_date) != 0) {
-			    strcpy(last_scrolled_date, buf_date);
-			    scroll_start(buf_date, 12, 0, 255, 0, 10);  
-			    // y=0, green, 15 px/sec
-			}			
-			// Update scroll every frame
-			scroll_update();
-            break;
-        }
-
-*/
-
-
-
-
-
-
-/*
-		------------------PLANTILLA 3---------------------------------------
-
-        case DISPLAY_TIME: {	
-            // --- Time ---
-            int hour12 = time->hour % 12;
-            if (hour12 == 0) hour12 = 12;
-
-            bool colon_on = (time->second % 2) == 0;  // blink colon
-            char buf_time[16];
-            if (hour12 < 10) {
-                snprintf(buf_time, sizeof(buf_time),
-                         colon_on ? " %1d:%02d" : " %1d %02d",
-                         hour12, time->minute);
-            } else {
-                snprintf(buf_time, sizeof(buf_time),
-                         colon_on ? "%02d:%02d" : "%02d %02d",
-                         hour12, time->minute);
-            }
-
-            draw_text(3, 18, buf_time, 255, 255, 255); // time in white
-
-
-            // --- Temperature ---
-            char buf_temp[16];
-            if (temp_valid) {
-                snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
-            } else {
-                snprintf(buf_temp, sizeof(buf_temp), "T E");
-            }
-            draw_text(40, 18, buf_temp, 255, 0, 0);  // temp in red
-
-            // --- Date (scrolling) ---
-            int weekday_index = (time->day_of_week - 1) % 7;
-            static char buf_date[64];        
-			snprintf(buf_date, sizeof(buf_date), "%s %d %s %04d",
-			         dias_semana[weekday_index],
-			         time->day,
-			         meses[time->month - 1],
-			         time->year);
 			         		
 			// Restart scroll if string changed
 			if (strcmp(buf_date, last_scrolled_date) != 0) {
 			    strcpy(last_scrolled_date, buf_date);
 			    scroll_start(buf_date, 5, 0, 255, 0, 10);  
 			    // y=0, green, 15 px/sec
-			}			
-			// Update scroll every frame
-			scroll_update();
-            break;
-        }*/
+			}	
+*/	
 
 
 
 
 
 
-
-/*
-		-------------------------PLANTILLA 1 -------------------------------------
-		
-		case DISPLAY_TIME: {	
-			
-			//------------DATE-------------------------
-            int weekday_index = (time->day_of_week - 1) % 7;
-            char buf3[32];
-            snprintf(buf3, sizeof(buf3), "%s",
-                     dias_semana[weekday_index]);
-
-            draw_text(1, 1, buf3, 0, 255, 0);
-            
-            
-            
-            
-            
-            char buf4[32];
-            snprintf(buf4, sizeof(buf4), "%02d-%02d-%02d",
-                     time->day,time->month,
-                     time->year-2000);
-
-            draw_text(4, 11, buf4, 0, 0, 255);//x=6            			
-			
-			
-            // ----------------- Time -------------------
-            int hour12 = time->hour % 12;
-            if (hour12 == 0) hour12 = 12;
-
-            bool colon_on = (time->second % 2) == 0;  // blink colon
-            char buf_time[16];
-            if (hour12 < 10) {
-                snprintf(buf_time, sizeof(buf_time),
-                         colon_on ? " %1d:%02d" : " %1d %02d",
-                         hour12, time->minute);
-            } else {
-                snprintf(buf_time, sizeof(buf_time),
-                         colon_on ? "%02d:%02d" : "%02d %02d",
-                         hour12, time->minute);
-            }
-
-            draw_text(0, 22, buf_time, 255, 255, 255); // time in white
-
-
-            // ------------------- Temperature ---------------
-            char buf_temp[16];
-            if (temp_valid) {
-                snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
-            } else {
-                snprintf(buf_temp, sizeof(buf_temp), "T E");
-            }
-            draw_text(40, 22, buf_temp, 255, 0, 0);  // temp in red
-
-           
-            break;
-        }
-
-
-*/

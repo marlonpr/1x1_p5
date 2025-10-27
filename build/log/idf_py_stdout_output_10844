@@ -1,6 +1,6 @@
 Command: ninja flash
 [1/5] C:\WINDOWS\system32\cmd.exe /C "cd /D C:\Users\Marlon\workspace\1x1_p5\build\esp-idf\esptool_py && C:\Users\Marlon\.espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe C:/esp/esp-idf-v5.5/components/partition_table/check_sizes.py --offset 0x8000 partition --type app C:/Users/Marlon/workspace/1x1_p5/build/partition_table/partition-table.bin C:/Users/Marlon/workspace/1x1_p5/build/app-template.bin"
-app-template.bin binary size 0x47780 bytes. Smallest app partition is 0x100000 bytes. 0xb8880 bytes (72%) free.
+app-template.bin binary size 0x47460 bytes. Smallest app partition is 0x100000 bytes. 0xb8ba0 bytes (72%) free.
 [2/5] Performing build step for 'bootloader'
 [1/1] C:\WINDOWS\system32\cmd.exe /C "cd /D C:\Users\Marlon\workspace\1x1_p5\build\bootloader\esp-idf\esptool_py && C:\Users\Marlon\.espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe C:/esp/esp-idf-v5.5/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 C:/Users/Marlon/workspace/1x1_p5/build/bootloader/bootloader.bin"
 Bootloader binary size 0x6680 bytes. 0x980 bytes (8%) free.
@@ -28,23 +28,23 @@ SHA digest in image updated
 Compressed 26240 bytes to 16503...
 Writing at 0x00001000... (50 %)
 Writing at 0x000075e2... (100 %)
-Wrote 26240 bytes (16503 compressed) at 0x00001000 in 0.8 seconds (effective 259.8 kbit/s)...
+Wrote 26240 bytes (16503 compressed) at 0x00001000 in 0.8 seconds (effective 254.6 kbit/s)...
 Hash of data verified.
-Compressed 292736 bytes to 141452...
+Compressed 291936 bytes to 142236...
 Writing at 0x00010000... (11 %)
-Writing at 0x0001dada... (22 %)
-Writing at 0x0002b561... (33 %)
-Writing at 0x0003149e... (44 %)
-Writing at 0x00037085... (55 %)
-Writing at 0x0003d095... (66 %)
-Writing at 0x00043580... (77 %)
-Writing at 0x0004d49d... (88 %)
-Writing at 0x00053a64... (100 %)
-Wrote 292736 bytes (141452 compressed) at 0x00010000 in 3.9 seconds (effective 601.9 kbit/s)...
+Writing at 0x0001d949... (22 %)
+Writing at 0x0002adcd... (33 %)
+Writing at 0x00030d7d... (44 %)
+Writing at 0x0003684d... (55 %)
+Writing at 0x0003c942... (66 %)
+Writing at 0x0004280e... (77 %)
+Writing at 0x0004c490... (88 %)
+Writing at 0x0005309c... (100 %)
+Wrote 291936 bytes (142236 compressed) at 0x00010000 in 3.9 seconds (effective 602.8 kbit/s)...
 Hash of data verified.
 Compressed 3072 bytes to 103...
 Writing at 0x00008000... (100 %)
-Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.1 seconds (effective 453.4 kbit/s)...
+Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.1 seconds (effective 442.4 kbit/s)...
 Hash of data verified.
 
 Leaving...
