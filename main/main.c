@@ -644,7 +644,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
                 
                 pos_hour = 0;
                 
-                
+                if (hour12 > 19) pos_hour = 1; 
                 
                 
                 draw_text_2(pos_hour, 14, buf_hour, 255, 255, 255); // HOUR         
