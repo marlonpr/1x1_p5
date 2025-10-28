@@ -618,13 +618,16 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
  
  
  
+		    pos_hour = 0;                
+            if (time->minute % 10 == 1) pos_hour = 2;
+ 
             
             if (hour12 < 10) 
             {
                 //------------------------------------------------------------ HOURS H ------------------------------------------
                 snprintf(buf_hour, sizeof(buf_hour), " %1d", hour12);
                 
-                pos_hour = -1;
+                pos_hour -=1;
                 
                 
                 
@@ -642,9 +645,13 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
                 //------------------------------------------------------------ HOURS HH ------------------------------------------
                 snprintf(buf_hour, sizeof(buf_hour), "%02d", hour12); 
                 
-                pos_hour = 0;
+                //pos_hour = 0;                
+                if (hour12 > 19){
+					pos_hour += 1;
+					if (time->minute % 10 == 1) pos_hour -= 1;
+				} 
                 
-                if (hour12 > 19) pos_hour = 1; 
+                 
                 
                 
                 draw_text_2(pos_hour, 14, buf_hour, 255, 255, 255); // HOUR         
