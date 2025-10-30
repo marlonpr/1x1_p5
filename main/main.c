@@ -4,8 +4,30 @@
 #include "logo.h"
 #include "freertos/queue.h"
 #include "esp_timer.h"
+#include "driver/uart.h"
+
+
 
 #define MENU_TIMEOUT_US   (10 * 1000000)  // 10 seconds
+
+#define UART_NUM        UART_NUM_0
+#define UART_BUF_SIZE   1024
+
+
+void init_uart(void)
+{
+    const uart_config_t uart_config = {
+        .baud_rate = 115200,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
+    };
+    uart_driver_install(UART_NUM, UART_BUF_SIZE * 2, 0, 0, NULL, 0);
+    uart_param_config(UART_NUM, &uart_config);
+    uart_set_pin(UART_NUM, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+}
+
 
 static int menu_active = 0;
 static int64_t last_button_time = 0;
@@ -20,6 +42,10 @@ bool mode_entering = false;
 bool format_flag = false;
 
 bool format_entering = false;
+
+
+
+int temporal_brightness = 0;
 
 
 
@@ -164,9 +190,6 @@ static void init_buttons(void)
 }
 
 
-
-
-
 typedef enum {
     MENU_IDLE,
     MENU_BRIGHTNESS,
@@ -183,26 +206,12 @@ static int brightness_level = 5; // 1–10
 static ds3231_time_t tmp_time;   // temporary time editing
 
 
-
-
-
-
-//bool clock_format = false; 
-
-
 typedef enum {
     OFF = 0,
     ON,
 } hour_format;
 
 hour_format clock_format = OFF;
-
-
-
-
-
-
-
 
 
 static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
@@ -213,6 +222,9 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
         case MENU_IDLE:
             if (btn == BTN_MENU) {
 				ESP_ERROR_CHECK(ds3231_get_time(rtc, &tmp_time));
+				
+				temporal_brightness = brightness_level;
+				
 				menu_state = MENU_BRIGHTNESS;
 				stop_flag = true;
 			    menu_active = 1;
@@ -245,8 +257,8 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
             break;
 
         case MENU_BRIGHTNESS:
-            if (btn == BTN_UP && brightness_level < 10) brightness_level++;
-            if (btn == BTN_DOWN && brightness_level > 1) brightness_level--;
+            if (btn == BTN_UP && temporal_brightness < 10) temporal_brightness++;
+            if (btn == BTN_DOWN && temporal_brightness > 1) temporal_brightness--;
             //set_global_brightness(brightness_level * 10);
             if (btn == BTN_MENU) menu_state = MENU_HOUR;
             break;
@@ -299,7 +311,7 @@ static void handle_menu_button(button_t btn, ds3231_dev_t *rtc)
 				
 				
 				
-								
+				brightness_level = temporal_brightness;				
 								
 				save_brightness(brightness_level);  // <--- save here
 					
@@ -429,6 +441,48 @@ static void menu_task(void *arg)
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
+
+
+
+//---------------------------------------------------------- UART ----------------------------------------------------
+
+static void uart_command_task(void *arg)
+{
+    ds3231_dev_t *rtc = (ds3231_dev_t *)arg;
+    uint8_t data[UART_BUF_SIZE];
+
+    while (1) {
+        int len = uart_read_bytes(UART_NUM, data, UART_BUF_SIZE - 1, pdMS_TO_TICKS(100));
+        if (len > 0) {
+            data[len] = '\0'; // null-terminate
+
+            if (strstr((char*)data, "MENU")) {
+                handle_menu_button(BTN_MENU, rtc);
+                last_button_time = esp_timer_get_time();
+                printf("UART -> MENU pressed\n");
+            } 
+            else if (strstr((char*)data, "UP")) {
+                handle_menu_button(BTN_UP, rtc);
+                last_button_time = esp_timer_get_time();
+                printf("UART -> UP pressed\n");
+            } 
+            else if (strstr((char*)data, "DOWN")) {
+                handle_menu_button(BTN_DOWN, rtc);
+                last_button_time = esp_timer_get_time();
+                printf("UART -> DOWN pressed\n");
+            }
+        }
+    }
+}
+
+
+
+
+//-----------------------------------------------------------------------------------------------------------------------------
+
+
+
+
 
 static ds18b20_t sensor;
 
@@ -861,7 +915,8 @@ void drawing_task(void *arg)
             switch (menu_state)
             {
                 case MENU_BRIGHTNESS:
-                    snprintf(buf, sizeof(buf), "BRILLO:%d", brightness_level);
+                    //snprintf(buf, sizeof(buf), "BRILLO:%d", brightness_level);
+                    snprintf(buf, sizeof(buf), "BRILLO:%d", temporal_brightness);                   
                     draw_text(1, 8, buf, 255, 0, 0);
                     break;
                 case MENU_HOUR:
@@ -1145,6 +1200,9 @@ void app_main(void)
 
 	init_nvs_brightness();
 	
+	    // Start UART interface for PC control
+    init_uart();
+	
 	
 	brightness_level = load_brightness();
 	
@@ -1196,6 +1254,11 @@ void app_main(void)
 	xTaskCreatePinnedToCore(temp_task,      "TempTask",      1024, NULL, 2, NULL, 1);
 
 	xTaskCreatePinnedToCore(menu_task, "MenuTask", 4096, &rtc, 2, NULL, 1);
+	
+
+    xTaskCreatePinnedToCore(uart_command_task, "UART_CommandTask", 4096, &rtc, 2, NULL, 1);
+
+
 
     while (true) 
 	{
