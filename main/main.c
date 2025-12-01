@@ -800,13 +800,44 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 
 
         case DISPLAY_TEMPERATURE: {
-			//------------DATE-------------------------
+			
+			
+			
+			//-------------------------------------------------------------- DATE ---------------------------------------------------------------------------
+			
+			
+			
             int weekday_index = (time->day_of_week - 1) % 7;
             char buf3[32];
-            snprintf(buf3, sizeof(buf3), "%s",
-                     dias_semana[weekday_index]);
+            
+            int pos_day = 0;
+            
+            
+            snprintf(buf3, sizeof(buf3), "%s",dias_semana[weekday_index]);
+            
+            
+            
+            
+            if (weekday_index == 0 || weekday_index == 5)
+            {
+				pos_day = 1 + 6*1;
+				
+			} else if (weekday_index == 1)
+			{
+				pos_day = 2 + 6*2;
+				
+			} else if (weekday_index == 2 || weekday_index == 4 || weekday_index == 6 )
+			{
+				pos_day = 1 + 9;
+				
+			} else
+			{
+				pos_day = 0;
+			}
+            
+            
 
-            draw_text(1, 1, buf3, 0, 255, 0);
+            draw_text(1 + pos_day, 1, buf3, 0, 255, 0);
             
             
             
