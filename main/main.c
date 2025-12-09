@@ -59,7 +59,7 @@ typedef struct {
     int y;
     uint8_t r, g, b;
     bool active;
-    bool temp;
+    //bool temp;
     TickType_t last_tick;
     int speed_px_per_sec;
 } scroll_state_t;
@@ -89,7 +89,7 @@ void scroll_start(const char *text, int y,
     scroll_state.b = b;
 
     
-    scroll_state.temp = false;
+    //scroll_state.temp = false;
     scroll_state.last_tick = xTaskGetTickCount();
 }
 
@@ -493,8 +493,13 @@ void temp_task(void *arg)
 {
     while (1) {
         int16_t t;
-        if (ds18b20_read_temperature_int(&sensor, &t) == ESP_OK) {
+        if (ds18b20_read_temperature_int(&sensor, &t) == ESP_OK) 
+        {
             current_temp = t;
+            if (current_temp < -9)
+            {
+				current_temp = -9;
+			}
             temp_valid = true;
         } else {
             temp_valid = false;
@@ -537,6 +542,24 @@ const char *meses[] = {
 void draw_display(display_mode_t mode, ds3231_time_t *time)
 {
     clear_back_buffer();
+    
+    int r_temp = 0;
+    int g_temp = 0;
+    int b_temp = 0;            
+    
+    if(current_temp < 10)
+    {
+		r_temp = 255; g_temp = 255; b_temp = 255;	// temp in white
+	} else if (current_temp > 9 && current_temp < 20)
+	{
+		r_temp = 0; g_temp = 255; b_temp = 255;  // temp in cyan
+	} else if (current_temp > 19 && current_temp < 30)
+	{
+		r_temp = 255; g_temp = 65; b_temp = 0;  // temp in orange
+	} else
+	{
+		r_temp = 255; g_temp = 0; b_temp = 0;  // temp in red				
+	}
 
     switch (mode) {
         case DISPLAY_LOGO:{  
@@ -589,12 +612,31 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
 
             // --- Temperature ---
             char buf_temp[16];
-            if (temp_valid) {
-                snprintf(buf_temp, sizeof(buf_temp), "%d*C", current_temp);
-            } else {
+            if (temp_valid) 
+            {
+                
+                snprintf(buf_temp, sizeof(buf_temp), "%d*C", current_temp);                
+                
+            } else 
+            {
                 snprintf(buf_temp, sizeof(buf_temp), "T E");
             }
-            draw_text(20, 22, buf_temp, 255, 0, 0);  // temp in red
+            
+            
+
+			draw_text(20, 22, buf_temp, r_temp, g_temp, b_temp);  				
+			
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
 
             // --- Date (scrolling) ---
             int weekday_index = (time->day_of_week - 1) % 7;
@@ -746,20 +788,48 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             //----------------------------------TEMPERATURE SECTION .............!!!!  
                         // --- Temperature ---
             char buf_temp[20];
-            if (temp_valid && scroll_state.temp) {
-                snprintf(buf_temp, sizeof(buf_temp), "%d*C", current_temp);
-            } else if (temp_valid) {
+             if (temp_valid) 
+            {
                 snprintf(buf_temp, sizeof(buf_temp), "%d*", current_temp);
-            }  else {
+                
+                
+            }  else 
+            {
                 snprintf(buf_temp, sizeof(buf_temp), "T E");
-            }            
+                
+            } 
+                       
             //draw_text_2(43, 15, buf_temp, 255, 0, 0);  // temp in red
             
             
             
-            draw_text_6(50 , 26, buf_temp, 255, 0, 0); // TEMPERATURE VALUE         
-            draw_text_4(57, 26, "#" , 255, 0, 0); // DEGREE SYMBOL
-            draw_text_6(60 , 26, "$", 255, 0, 0); // CELSIUS
+
+            draw_text_6(50 , 26, buf_temp, r_temp, g_temp, b_temp); // TEMPERATURE VALUE         
+            draw_text_4(57, 26, "#" , r_temp, g_temp, b_temp); // DEGREE SYMBOL
+            draw_text_6(60 , 26, "$", r_temp, g_temp, b_temp); // CELSIUS
+
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
             
             
 
@@ -901,7 +971,7 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             } else {
                 snprintf(buf_temp, sizeof(buf_temp), "T E");
             }
-            draw_text(43, 22, buf_temp, 255, 0, 0);  // temp in red
+            draw_text(43, 22, buf_temp, r_temp, g_temp, b_temp);  // temp 
             break;
         }
     }
@@ -1065,7 +1135,7 @@ void drawing_task(void *arg)
 					    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s) * 1000);
 					    ds3231_time_t now;
 					    scroll_state.active = false;
-					    scroll_state.temp = false;
+					    //scroll_state.temp = false;
 		
 					    while (xTaskGetTickCount() - start_tick < duration_ticks) {
 					        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
