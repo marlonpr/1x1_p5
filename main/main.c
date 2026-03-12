@@ -6,6 +6,8 @@
 #include "esp_timer.h"
 #include "driver/uart.h"
 
+#include "esp_log.h"
+
 
 
 #define MENU_TIMEOUT_US   (10 * 1000000)  // 10 seconds
@@ -13,20 +15,19 @@
 #define UART_NUM        UART_NUM_0
 #define UART_BUF_SIZE   1024
 
-
-void init_uart(void)
+bool ds18b20_is_present(ds18b20_t *dev)
 {
-    const uart_config_t uart_config = {
-        .baud_rate = 115200,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
-    };
-    uart_driver_install(UART_NUM, UART_BUF_SIZE * 2, 0, 0, NULL, 0);
-    uart_param_config(UART_NUM, &uart_config);
-    uart_set_pin(UART_NUM, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    return dev->present;
 }
+
+typedef enum {
+    TEMP_IDLE = 0,
+    TEMP_WAIT_CONVERSION
+} temp_state_t;
+
+static temp_state_t temp_state = TEMP_IDLE;
+static TickType_t temp_timestamp = 0;
+
 
 
 static int menu_active = 0;
@@ -444,41 +445,6 @@ static void menu_task(void *arg)
 
 
 
-//---------------------------------------------------------- UART ----------------------------------------------------
-
-static void uart_command_task(void *arg)
-{
-    ds3231_dev_t *rtc = (ds3231_dev_t *)arg;
-    uint8_t data[UART_BUF_SIZE];
-
-    while (1) {
-        int len = uart_read_bytes(UART_NUM, data, UART_BUF_SIZE - 1, pdMS_TO_TICKS(100));
-        if (len > 0) {
-            data[len] = '\0'; // null-terminate
-
-            if (strstr((char*)data, "MENU")) {
-                handle_menu_button(BTN_MENU, rtc);
-                last_button_time = esp_timer_get_time();
-                printf("UART -> MENU pressed\n");
-            } 
-            else if (strstr((char*)data, "UP")) {
-                handle_menu_button(BTN_UP, rtc);
-                last_button_time = esp_timer_get_time();
-                printf("UART -> UP pressed\n");
-            } 
-            else if (strstr((char*)data, "DOWN")) {
-                handle_menu_button(BTN_DOWN, rtc);
-                last_button_time = esp_timer_get_time();
-                printf("UART -> DOWN pressed\n");
-            }
-        }
-    }
-}
-
-
-
-
-//-----------------------------------------------------------------------------------------------------------------------------
 
 
 
@@ -491,27 +457,70 @@ static bool temp_valid = false;
 
 void temp_task(void *arg)
 {
-    while (1) {
-        int16_t t;
-        if (ds18b20_read_temperature_int(&sensor, &t) == ESP_OK) 
+    const TickType_t conversion_time = pdMS_TO_TICKS(750);
+    const TickType_t sample_period   = pdMS_TO_TICKS(5000);
+
+    TickType_t next_sample = xTaskGetTickCount();
+
+    while (1)
+    {
+        TickType_t now = xTaskGetTickCount();
+
+        switch (temp_state)
         {
-            current_temp = t;
-            if (current_temp < -9)
-            {
-				current_temp = -9;
-			}
-            temp_valid = true;
-        } else {
-            temp_valid = false;
+            //------------------------------------
+            case TEMP_IDLE:
+            //------------------------------------
+                if (now >= next_sample)
+                {
+                    if (ds18b20_start_conversion(&sensor) == ESP_OK)
+                    {
+                        temp_timestamp = now;
+                        temp_state = TEMP_WAIT_CONVERSION;
+                    }
+                    else
+                    {
+                        temp_valid = false;
+                        next_sample = now + sample_period;
+                    }
+                }
+                break;
+
+            //------------------------------------
+            case TEMP_WAIT_CONVERSION:
+            //------------------------------------
+                if ((now - temp_timestamp) >= conversion_time)
+                {
+                    int16_t t;
+
+                    if (ds18b20_read_scratchpad_temp(&sensor, &t) == ESP_OK)
+                    {
+                        current_temp = t;
+
+                        if (current_temp < -9)
+                            current_temp = -9;
+
+                        temp_valid = true;
+                    }
+                    else
+                    {
+                        temp_valid = false;
+                    }
+
+                    next_sample = now + sample_period;
+                    temp_state = TEMP_IDLE;
+                }
+                break;
         }
-        vTaskDelay(pdMS_TO_TICKS(5000)); // read every 5s
+
+        vTaskDelay(pdMS_TO_TICKS(50)); // small scheduler yield
     }
 }
 
 typedef enum {
     DISPLAY_LOGO = 0,
     DISPLAY_TIME,
-    DISPLAY_LOGO2,
+    //DISPLAY_LOGO2,
     DISPLAY_DATE,
 	DISPLAY_TEMPERATURE,
 	//DISPLAY_LOGO3,
@@ -667,11 +676,13 @@ void draw_display(display_mode_t mode, ds3231_time_t *time)
             break;        
         }
         
+/*
         case DISPLAY_LOGO2:{  
             // other modes...
             draw_bitmap_rgb(0,0,logo_bitmap2, LOGO_WIDTH, LOGO_HEIGHT);
             break;
         }
+*/
       
       
         case DISPLAY_DATE: { 
@@ -1106,6 +1117,7 @@ void drawing_task(void *arg)
 					}
 					
 					
+/*
 					case DISPLAY_LOGO2: {
 					    TickType_t start_tick = xTaskGetTickCount();
 					    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s)/7 * 1000);
@@ -1128,7 +1140,8 @@ void drawing_task(void *arg)
 					        if (stop_flag) break;
 					    }
 					    break;
-					    }			
+					    }
+*/			
 					
 					case DISPLAY_DATE: {
 					    TickType_t start_tick = xTaskGetTickCount();
@@ -1184,9 +1197,32 @@ void drawing_task(void *arg)
 				break;
 			}
 			case UNO: {
-				TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+				
+			    TickType_t start_tick = xTaskGetTickCount();
+			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s)/7 * 1000);
 			    ds3231_time_t now;
+			    scroll_state.active = false;
+
+			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+			        draw_display(DISPLAY_LOGO, &now);  // called frequently for smooth blinking
+
+			        // Small delay to avoid blocking CPU and allow colon toggle
+			        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+			        TickType_t elapsed = 0;
+			        while (elapsed < delay_ms) {
+			            if (stop_flag) break;  // early exit condition
+			            vTaskDelay(pdMS_TO_TICKS(10));
+			            elapsed += 10;
+			        }
+
+			        if (stop_flag) break;
+			    }				
+				
+				
+				 start_tick = xTaskGetTickCount();
+			     duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+			    //ds3231_time_t now;
 			    //scroll_state.active = false;
 
 			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
@@ -1207,9 +1243,31 @@ void drawing_task(void *arg)
 				break;
 			}
 			case DOS: {
-				TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s) * 1000);
+			    TickType_t start_tick = xTaskGetTickCount();
+			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s)/7 * 1000);
 			    ds3231_time_t now;
+			    scroll_state.active = false;
+
+			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+			        draw_display(DISPLAY_LOGO, &now);  // called frequently for smooth blinking
+
+			        // Small delay to avoid blocking CPU and allow colon toggle
+			        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+			        TickType_t elapsed = 0;
+			        while (elapsed < delay_ms) {
+			            if (stop_flag) break;  // early exit condition
+			            vTaskDelay(pdMS_TO_TICKS(10));
+			            elapsed += 10;
+			        }
+
+			        if (stop_flag) break;
+			    }				
+				
+				
+				 start_tick = xTaskGetTickCount();
+			     duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+			    //ds3231_time_t now;
 			    //scroll_state.active = false;
 
 			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
@@ -1230,9 +1288,31 @@ void drawing_task(void *arg)
 				break;
 			}
 			case TRES: {
-				TickType_t start_tick = xTaskGetTickCount();
-			    TickType_t duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+			    TickType_t start_tick = xTaskGetTickCount();
+			    TickType_t duration_ticks = pdMS_TO_TICKS((mode_interval_s)/7 * 1000);
 			    ds3231_time_t now;
+			    scroll_state.active = false;
+
+			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
+			        ESP_ERROR_CHECK(ds3231_get_time(rtc, &now));
+			        draw_display(DISPLAY_LOGO, &now);  // called frequently for smooth blinking
+
+			        // Small delay to avoid blocking CPU and allow colon toggle
+			        TickType_t delay_ms = 50; // update every 50ms (20Hz)
+			        TickType_t elapsed = 0;
+			        while (elapsed < delay_ms) {
+			            if (stop_flag) break;  // early exit condition
+			            vTaskDelay(pdMS_TO_TICKS(10));
+			            elapsed += 10;
+			        }
+
+			        if (stop_flag) break;
+			    }				
+				
+				
+				 start_tick = xTaskGetTickCount();
+			     duration_ticks = pdMS_TO_TICKS(mode_interval_s * 1000);
+			    //ds3231_time_t now;
 			    //scroll_state.active = false;
 
 			    while (xTaskGetTickCount() - start_tick < duration_ticks) {
@@ -1301,9 +1381,6 @@ void app_main(void)
 
 	init_nvs_brightness();
 	
-	    // Start UART interface for PC control
-    init_uart();
-	
 	
 	brightness_level = load_brightness();
 	
@@ -1328,7 +1405,11 @@ void app_main(void)
     ds3231_dev_t rtc;
     ESP_ERROR_CHECK(init_ds3231(&rtc));
 
-    ds18b20_init(&sensor, GPIO_NUM_27); // Use GPIO4 with 4.7kΩ pull-up resistor
+    //ds18b20_init(&sensor, GPIO_NUM_27); // Use GPIO4 with 4.7kΩ pull-up resistor
+    
+    if (ds18b20_init(&sensor, GPIO_NUM_27) != ESP_OK) {
+    ESP_LOGW("MAIN", "DS18B20 init issue");
+}
 
 	ds3231_time_t now;
 	ds3231_get_time(&rtc, &now);
@@ -1355,10 +1436,6 @@ void app_main(void)
 	xTaskCreatePinnedToCore(temp_task,      "TempTask",      1024, NULL, 2, NULL, 1);
 
 	xTaskCreatePinnedToCore(menu_task, "MenuTask", 4096, &rtc, 2, NULL, 1);
-	
-
-    xTaskCreatePinnedToCore(uart_command_task, "UART_CommandTask", 4096, &rtc, 2, NULL, 1);
-
 
 
     while (true) 

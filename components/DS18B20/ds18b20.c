@@ -46,24 +46,43 @@ static uint8_t ds18b20_read_byte(ds18b20_t *dev) {
     return data;
 }
 
-static bool ds18b20_reset(ds18b20_t *dev) {
+static bool ds18b20_reset(ds18b20_t *dev)
+{
     gpio_set_direction(dev->pin, GPIO_MODE_OUTPUT);
     gpio_set_level(dev->pin, 0);
     esp_rom_delay_us(480);
+
     gpio_set_level(dev->pin, 1);
     gpio_set_direction(dev->pin, GPIO_MODE_INPUT);
+
     esp_rom_delay_us(70);
-    int presence = !gpio_get_level(dev->pin);
+
+    bool presence = (gpio_get_level(dev->pin) == 0);
+
     esp_rom_delay_us(410);
+
     return presence;
 }
 
-esp_err_t ds18b20_init(ds18b20_t *sensor, gpio_num_t pin) {
+esp_err_t ds18b20_init(ds18b20_t *sensor, gpio_num_t pin)
+{
     if (!sensor) return ESP_ERR_INVALID_ARG;
+
     sensor->pin = pin;
+    sensor->present = false;
+
     gpio_reset_pin(pin);
-    gpio_set_pull_mode(pin, GPIO_PULLUP_ONLY); // external 4.7kΩ recommended
-    return ds18b20_reset(sensor) ? ESP_OK : ESP_FAIL;
+    gpio_set_pull_mode(pin, GPIO_PULLUP_ONLY);
+
+    sensor->present = ds18b20_reset(sensor);
+
+    if (!sensor->present) {
+        ESP_LOGW(TAG, "DS18B20 not detected");
+        return ESP_OK;   // ← IMPORTANT: do NOT fail init
+    }
+
+    ESP_LOGI(TAG, "DS18B20 detected");
+    return ESP_OK;
 }
 
 esp_err_t ds18b20_read_temperature(ds18b20_t *sensor, float *temperature) {
@@ -90,12 +109,20 @@ esp_err_t ds18b20_read_temperature(ds18b20_t *sensor, float *temperature) {
     return ESP_OK;
 }
 
-esp_err_t ds18b20_read_temperature_int(ds18b20_t *sensor, int16_t *temperature) {
-    if (!sensor || !temperature) return ESP_ERR_INVALID_ARG;
+esp_err_t ds18b20_read_temperature_int(ds18b20_t *sensor,
+                                       int16_t *temperature)
+{
+    if (!sensor || !temperature)
+        return ESP_ERR_INVALID_ARG;
+
+    // ---- SENSOR NOT PRESENT ----
+    if (!sensor->present)
+        return ESP_ERR_NOT_FOUND;
 
     if (!ds18b20_reset(sensor)) {
-        ESP_LOGE("DS18B20", "Sensor not found");
-        return ESP_FAIL;
+        sensor->present = false;   // hot unplug detection
+        ESP_LOGW(TAG, "Sensor disappeared");
+        return ESP_ERR_NOT_FOUND;
     }
 
     ds18b20_write_byte(sensor, DS18B20_CMD_SKIP_ROM);
@@ -111,6 +138,33 @@ esp_err_t ds18b20_read_temperature_int(ds18b20_t *sensor, int16_t *temperature) 
     int16_t raw_temp = (msb << 8) | lsb;
 
     *temperature = raw_temp >> 4;  // Divide by 16, truncate fractional part
+
+    return ESP_OK;
+}
+
+esp_err_t ds18b20_start_conversion(ds18b20_t *sensor)
+{
+    if (!ds18b20_reset(sensor))
+        return ESP_ERR_NOT_FOUND;
+
+    ds18b20_write_byte(sensor, DS18B20_CMD_SKIP_ROM);
+    ds18b20_write_byte(sensor, DS18B20_CMD_CONVERT_T);
+
+    return ESP_OK;
+}
+
+esp_err_t ds18b20_read_scratchpad_temp(ds18b20_t *sensor, int16_t *temp_out)
+{
+    if (!ds18b20_reset(sensor))
+        return ESP_ERR_NOT_FOUND;
+
+    ds18b20_write_byte(sensor, DS18B20_CMD_SKIP_ROM);
+    ds18b20_write_byte(sensor, DS18B20_CMD_READ_SCRATCH);
+
+    uint8_t lsb = ds18b20_read_byte(sensor);
+    uint8_t msb = ds18b20_read_byte(sensor);
+
+    *temp_out = (int16_t)((msb << 8) | lsb) / 16;
 
     return ESP_OK;
 }
