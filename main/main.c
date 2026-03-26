@@ -457,63 +457,38 @@ static bool temp_valid = false;
 
 void temp_task(void *arg)
 {
-    const TickType_t conversion_time = pdMS_TO_TICKS(750);
-    const TickType_t sample_period   = pdMS_TO_TICKS(5000);
-
-    TickType_t next_sample = xTaskGetTickCount();
+    const TickType_t period = pdMS_TO_TICKS(5000);
+    TickType_t last_wake = xTaskGetTickCount();
 
     while (1)
     {
-        TickType_t now = xTaskGetTickCount();
+        int16_t t;
 
-        switch (temp_state)
+        // Start measurement
+        if (ds18b20_start_conversion(&sensor) == ESP_OK)
         {
-            //------------------------------------
-            case TEMP_IDLE:
-            //------------------------------------
-                if (now >= next_sample)
-                {
-                    if (ds18b20_start_conversion(&sensor) == ESP_OK)
-                    {
-                        temp_timestamp = now;
-                        temp_state = TEMP_WAIT_CONVERSION;
-                    }
-                    else
-                    {
-                        temp_valid = false;
-                        next_sample = now + sample_period;
-                    }
-                }
-                break;
+            vTaskDelay(pdMS_TO_TICKS(750)); // conversion time
 
-            //------------------------------------
-            case TEMP_WAIT_CONVERSION:
-            //------------------------------------
-                if ((now - temp_timestamp) >= conversion_time)
-                {
-                    int16_t t;
+            if (ds18b20_read_scratchpad_temp(&sensor, &t) == ESP_OK)
+            {
+                current_temp = t;
 
-                    if (ds18b20_read_scratchpad_temp(&sensor, &t) == ESP_OK)
-                    {
-                        current_temp = t;
+                if (current_temp < -9)
+                    current_temp = -9;
 
-                        if (current_temp < -9)
-                            current_temp = -9;
-
-                        temp_valid = true;
-                    }
-                    else
-                    {
-                        temp_valid = false;
-                    }
-
-                    next_sample = now + sample_period;
-                    temp_state = TEMP_IDLE;
-                }
-                break;
+                temp_valid = true;
+            }
+            else
+            {
+                temp_valid = false;
+            }
+        }
+        else
+        {
+            temp_valid = false;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(50)); // small scheduler yield
+        vTaskDelayUntil(&last_wake, period);
     }
 }
 
